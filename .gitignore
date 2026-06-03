@@ -1,0 +1,15 @@
+# dependencies / build
+web/node_modules
+web/.next
+web/out
+api/.venv
+__pycache__
+*.pyc
+
+# env / local
+**/.env.local
+*.log
+.DS_Store
+
+# temp
+web/public/__test__

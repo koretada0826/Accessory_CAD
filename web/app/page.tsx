@@ -1,0 +1,57 @@
+'use client';
+
+import dynamic from 'next/dynamic';
+import TopBar from '@/components/layout/TopBar';
+import LeftSidebar from '@/components/layout/LeftSidebar';
+import PropertyPanel from '@/components/panels/PropertyPanel';
+import ManufacturingPanel from '@/components/panels/ManufacturingPanel';
+import ChatPanel from '@/components/panels/ChatPanel';
+import PersistenceBridge from '@/components/PersistenceBridge';
+import WelcomeOverlay from '@/components/WelcomeOverlay';
+import KeyboardShortcuts from '@/components/KeyboardShortcuts';
+
+// 3DビューアはSSR不可（WebGL/window依存）のため client-only で読み込む
+const Viewer = dynamic(() => import('@/components/viewer/Viewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-sm text-ink-500">3Dビューアを準備中…</div>
+  ),
+});
+
+export default function Page() {
+  return (
+    <div className="flex h-screen flex-col bg-ink-950">
+      <PersistenceBridge />
+      <KeyboardShortcuts />
+      <WelcomeOverlay />
+      <TopBar />
+
+      <div className="flex min-h-0 flex-1">
+        {/* 左: アセット / カテゴリ / 画像 / テンプレ */}
+        <aside className="w-64 shrink-0 border-r border-ink-700 glass">
+          <LeftSidebar />
+        </aside>
+
+        {/* 中央: 3Dビューア + 製造チェック */}
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            <Viewer />
+          </div>
+          <div className="h-56 shrink-0 border-t border-ink-700 glass">
+            <ManufacturingPanel />
+          </div>
+        </main>
+
+        {/* 右: プロパティ編集 + AIチャット */}
+        <aside className="flex w-80 shrink-0 flex-col border-l border-ink-700 glass">
+          <div className="min-h-0 flex-1">
+            <PropertyPanel />
+          </div>
+          <div className="h-80 shrink-0 border-t border-ink-700">
+            <ChatPanel />
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}

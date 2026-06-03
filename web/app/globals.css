@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+  background: #0a0a0f;
+  color: #e7e7ef;
+  overscroll-behavior: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* スクロールバー（ダーク） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #34343f;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* レンジスライダー */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: #34343f;
+  outline: none;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e6c068;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(230, 192, 104, 0.18);
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: #e6c068;
+  cursor: pointer;
+}
+
+.glass {
+  background: linear-gradient(180deg, rgba(27, 27, 39, 0.92), rgba(16, 16, 24, 0.92));
+  backdrop-filter: blur(8px);
+}

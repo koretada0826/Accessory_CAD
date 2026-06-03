@@ -1,0 +1,11 @@
+# --- 必須（軽量・すぐ入る） ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+pillow==10.4.0
+numpy==1.26.4
+
+# --- 任意（厳密CAD / STEP出力 / 画像解析強化）---
+# これらは重め。STEP出力・輪郭抽出を有効化したい時に個別導入してください。
+#   pip install cadquery==2.4.0      # OpenCascade ベースの厳密ソリッド & STEP出力
+#   pip install opencv-python-headless trimesh shapely scipy  # 輪郭抽出 / メッシュ処理
