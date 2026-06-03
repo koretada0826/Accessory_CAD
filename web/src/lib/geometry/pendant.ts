@@ -75,9 +75,38 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
     }
   }
 
+  // ネックレス: バチカンから上へ2本のチェーンを生成
+  let chainRise = 0;
+  if (design.category === 'necklace') {
+    const tube = 0.45;
+    const linkR = 1.4;
+    const topPt = topY + (p.bail.type === 'ring_bail' ? p.bail.innerDiameter : 1);
+    const N = 18;
+    const reach = Math.max(p.width, 20) * 0.7;
+    const rise = Math.max(p.height, 22) * 1.6;
+    chainRise = rise;
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 1; i <= N; i++) {
+        const t = i / N;
+        const x = side * Math.sin((t * Math.PI) / 2) * reach;
+        const y = topPt + t * rise;
+        const link = new THREE.TorusGeometry(linkR, tube, 8, 16);
+        // 交互に向きを変えて鎖の絡みを表現
+        if (i % 2 === 0) link.rotateY(Math.PI / 2);
+        else link.rotateX(Math.PI / 2);
+        link.translate(x, y, 0);
+        parts.push({ id: `chain-${side}-${i}`, geometry: link, role: 'metal', componentType: 'bail' });
+      }
+    }
+  }
+
   return {
     parts,
-    bounds: { width: p.width, height: p.height + (p.bail.type === 'ring_bail' ? p.bail.innerDiameter : 0), depth: p.thickness },
+    bounds: {
+      width: p.width,
+      height: p.height + (p.bail.type === 'ring_bail' ? p.bail.innerDiameter : 0) + chainRise,
+      depth: p.thickness,
+    },
   };
 }
 
