@@ -16,7 +16,7 @@
 ## 軸B-1: 工場提案レベル（factory-grade）
 - [x] **STEP厳密生成**: CadQuery 2.7導入。Ring(印台付)/Pendant(disc)/**custom outline(画像トレース)** でISO-10303-21 STEP生成を検証（57KB）
 - [x] フロント→backend STEP接続（`.env.local` で NEXT_PUBLIC_API_BASE=:8000、api常駐、/export/step がHTTP200で実バイト返却）
-- [ ] **刻印(エングレービング)の3D反映**（emboss=凸 / 可能ならdeboss=凹）+ 右パネルに刻印エディタ
+- [x] **刻印(エングレービング)の3D反映**（凹彫り/凸浮き・フォント3種・位置・日本語対応。canvasテクスチャ方式でペンダント前面に表示）+ 右パネルに刻印エディタ ※STEPへの幾何反映は将来
 - [ ] manifold / 水密性の簡易真判定、最小肉厚の実測ベース警告強化
 - [ ] 鋳造を見据えた指標（肉盗み/湯口の注意、研磨代）を仕様書に追記
 - [ ] 素材原価の現実化（重量×実勢レンジ、税/工賃の概算）
@@ -52,3 +52,4 @@
 ## ログ
 - baseline: 初期コミット。Ring/Pendant/画像トレース/製造/出力/ノーコードUX 動作確認済み。
 - iter1: CadQuery 2.7導入→STEP厳密生成（Ring/Pendant/画像トレースcustom outline）。api常駐(:8000)、フロント接続(.env.local)。end-to-end curl検証OK（star→57KB STEP）。cad.pyにcustom outline対応+多角形内部の安全な吊り穴配置を追加。
+- iter2: 刻印(エングレービング)を実装。canvasテクスチャでペンダント前面に凹/凸表示（日本語OK）、右パネルに刻印エディタ(文字/サイズ/凹凸/フォント/位置)。ベベル分の前面オフセットを計算して面に接地。実機で「LOVE」表示確認。

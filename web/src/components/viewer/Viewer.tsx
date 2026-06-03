@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { useDesignStore } from '@/store/useDesignStore';
 import { buildModel } from '@/lib/geometry';
 import { MATERIALS } from '@/lib/data/materials';
+import EngravingDecal from './EngravingDecal';
 
 type ViewPreset = 'persp' | 'front' | 'side' | 'back' | 'top';
 
@@ -77,6 +78,7 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
           </mesh>
         );
       })}
+      <EngravingDecal />
     </group>
   );
 }

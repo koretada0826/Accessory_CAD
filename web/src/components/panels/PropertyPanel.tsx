@@ -296,6 +296,67 @@ export default function PropertyPanel() {
         ))}
       </Section>
 
+      {/* ===== 刻印（ペンダント） ===== */}
+      {p.kind === 'pendant' && (
+        <Section
+          title="刻印 (エングレービング)"
+          right={
+            <button
+              onClick={() =>
+                commit((d) =>
+                  d.engraving.push({ id: nanoid(8), text: 'LOVE', size: 4, depth: -0.4, position: { x: 0, y: 0 }, font: 'serif' })
+                )
+              }
+              className="rounded-md bg-ink-800 px-2 py-0.5 text-[11px] text-gold-400 hover:bg-ink-700"
+            >
+              + 追加
+            </button>
+          }
+        >
+          {design.engraving.length === 0 && <div className="text-[11px] text-ink-500">文字を刻めます（名入れ・日付など）。</div>}
+          {design.engraving.map((e, i) => (
+            <div key={e.id} className="rounded-lg bg-ink-800/60 p-2">
+              <div className="mb-1.5 flex items-center justify-between">
+                <input
+                  value={e.text}
+                  onChange={(ev) => commit((d) => { d.engraving[i].text = ev.target.value; })}
+                  placeholder="文字を入力"
+                  className="w-32 rounded-md border border-ink-700 bg-ink-900 px-2 py-1 text-xs text-white outline-none focus:border-gold-500"
+                />
+                <button onClick={() => commit((d) => void d.engraving.splice(i, 1))} className="text-[11px] text-red-400/80 hover:text-red-300">削除</button>
+              </div>
+              <SliderField label="文字サイズ" value={e.size} min={1.5} max={12} step={0.1}
+                onChange={(v) => commit((d) => { d.engraving[i].size = v; })} />
+              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                <Segmented
+                  value={e.depth < 0 ? 'deboss' : 'emboss'}
+                  onChange={(v) => commit((d) => { d.engraving[i].depth = v === 'deboss' ? -0.4 : 0.4; })}
+                  options={[
+                    { value: 'deboss', label: '凹 彫り' },
+                    { value: 'emboss', label: '凸 浮き' },
+                  ]}
+                />
+                <select
+                  value={e.font}
+                  onChange={(ev) => commit((d) => { (d.engraving[i].font as any) = ev.target.value; })}
+                  className="rounded-md border border-ink-700 bg-ink-900 px-1.5 py-1 text-[11px] text-white outline-none"
+                >
+                  <option value="serif">明朝/Serif</option>
+                  <option value="sans">ゴシック/Sans</option>
+                  <option value="script">筆記体/Script</option>
+                </select>
+              </div>
+              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                <SliderField label="左右位置" value={e.position.x} min={-p.width / 2} max={p.width / 2} step={0.5} unit="mm"
+                  onChange={(v) => commit((d) => { d.engraving[i].position.x = v; })} />
+                <SliderField label="上下位置" value={e.position.y} min={-p.height / 2} max={p.height / 2} step={0.5} unit="mm"
+                  onChange={(v) => commit((d) => { d.engraving[i].position.y = v; })} />
+              </div>
+            </div>
+          ))}
+        </Section>
+      )}
+
       {/* ===== 素材 ===== */}
       <Section title="素材">
         <div className="grid grid-cols-2 gap-1.5">
