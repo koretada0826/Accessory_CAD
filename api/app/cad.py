@@ -37,10 +37,21 @@ def build_step(design: AccessoryDesign) -> bytes:
     p = design.params
     kind = p.get("kind")
 
+    # 石・刻印（設計レベル）を取り出す
+    stones = [
+        {"x": s.position.get("x", 0.0), "y": s.position.get("y", 0.0), "d": s.diameter, "setting": s.setting}
+        for s in design.stones
+    ]
+    engraving = [
+        {"text": e.get("text", ""), "size": e.get("size", 4), "depth": e.get("depth", -0.4),
+         "x": e.get("position", {}).get("x", 0.0), "y": e.get("position", {}).get("y", 0.0)}
+        for e in design.engraving
+    ]
+
     if kind == "ring":
-        solid = _ring(p)
+        solid = _ring(p, stones)
     elif kind == "pendant":
-        solid = _pendant(p)
+        solid = _pendant(p, stones, engraving)
     else:
         # 汎用フォールバック: 角丸ボックス
         w = p.get("width", 16)
@@ -62,7 +73,37 @@ def build_step(design: AccessoryDesign) -> bytes:
             pass
 
 
-def _ring(p) -> "cq.Workplane":  # type: ignore
+def _bezel(d, height):  # type: ignore
+    """石を受けるベゼル（覆輪）の金属カラー: 外径=d+1.2, 内径=d を中空筒で"""
+    ro = d / 2 + 0.6
+    ri = d / 2
+    return cq.Workplane("XY").circle(ro).circle(ri).extrude(height)
+
+
+def _add_engraving(body, engraving, t):  # type: ignore
+    """前面(+Z)に文字を凹(deboss)/凸(emboss)で反映。フォント不可（日本語等）なら無視。"""
+    for e in engraving:
+        txt = (e.get("text") or "").strip()
+        if not txt:
+            continue
+        try:
+            size = e.get("size", 4)
+            cut = e.get("depth", -0.4) < 0
+            depth = abs(e.get("depth", 0.4)) + 0.2
+            wp = cq.Workplane("XY").workplane(offset=t / 2).center(e["x"], e["y"])
+            if cut:
+                txt_solid = wp.text(txt, size, -depth, cut=False, combine=False)
+                body = body.cut(txt_solid)
+            else:
+                txt_solid = wp.text(txt, size, depth, cut=False, combine=False)
+                body = body.union(txt_solid)
+        except Exception:
+            # フォント未対応（日本語など）→ 刻印はスキップ（STEP本体は維持）
+            continue
+    return body
+
+
+def _ring(p, stones=None) -> "cq.Workplane":  # type: ignore
     inner_r = p.get("innerDiameter", 17.0) / 2
     t = p.get("bandThickness", 1.6)
     width = p.get("bandWidth", 3.0)
@@ -83,6 +124,15 @@ def _ring(p) -> "cq.Workplane":  # type: ignore
             .translate((0, outer_r + top.get("height", 2.5) / 2 - 0.4, 0))
         )
         band = band.union(plate)
+
+    # 石のベゼル石座（リング上部 +Y）
+    for s in (stones or []):
+        try:
+            d = s["d"]
+            seat = _bezel(d, max(1.0, d * 0.45)).rotateAboutCenter((1, 0, 0), -90)
+            band = band.union(seat.translate((s["x"], outer_r + 0.2, 0)))
+        except Exception:
+            continue
     return band
 
 
@@ -120,7 +170,7 @@ def _safe_top_hole(poly, top_margin, r):
     return None
 
 
-def _pendant(p) -> "cq.Workplane":  # type: ignore
+def _pendant(p, stones=None, engraving=None) -> "cq.Workplane":  # type: ignore
     shape = p.get("shape", "disc")
     w = p.get("width", 18)
     h = p.get("height", 18)
@@ -156,4 +206,18 @@ def _pendant(p) -> "cq.Workplane":  # type: ignore
                 .translate((0, 0, -t))
             )
             body = body.cut(hole)
+
+    # 石のベゼル石座（前面 +Z）
+    for s in (stones or []):
+        try:
+            d = s["d"]
+            seat = _bezel(d, max(1.0, d * 0.4)).translate((s["x"], s["y"], t / 2))
+            body = body.union(seat)
+        except Exception:
+            continue
+
+    # 刻印（前面）
+    if engraving:
+        body = _add_engraving(body, engraving, t)
+
     return body
