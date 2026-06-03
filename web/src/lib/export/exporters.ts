@@ -102,6 +102,18 @@ export function exportSVG(design: AccessoryDesign) {
   download(new Blob([svg], { type: 'image/svg+xml' }), `${safeName(design)}.svg`);
 }
 
+/** 3Dビューのスクリーンショット（PNG）。共有・提案・SNS用 */
+export function exportPNG(design: AccessoryDesign) {
+  const canvas = document.querySelector('canvas') as HTMLCanvasElement | null;
+  if (!canvas) throw new Error('3Dビューが見つかりません');
+  const url = canvas.toDataURL('image/png');
+  if (!url || url.length < 1000) throw new Error('画像の取得に失敗しました（ビューを一度操作してから再試行してください）');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${safeName(design)}.png`;
+  a.click();
+}
+
 /** 構造JSON（プロジェクト保存・再読込・共有用） */
 export function exportJSON(design: AccessoryDesign) {
   download(new Blob([JSON.stringify(design, null, 2)], { type: 'application/json' }), `${safeName(design)}.json`);

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useDesignStore } from '@/store/useDesignStore';
-import { exportGLB, exportOBJ, exportSTL, exportSVG, exportJSON, exportSTEP } from '@/lib/export/exporters';
+import { exportGLB, exportOBJ, exportSTL, exportSVG, exportJSON, exportSTEP, exportPNG } from '@/lib/export/exporters';
 import { exportSpecSheet } from '@/lib/export/specSheet';
 import type { AccessoryDesign } from '@/types/accessory';
 
@@ -62,6 +62,7 @@ export default function TopBar() {
 
   const exportItems: { label: string; fn: () => void | Promise<void>; note?: string }[] = [
     { label: '技術仕様書 (PDF用)', fn: () => exportSpecSheet(design), note: '工場提案' },
+    { label: '画像保存 (PNG)', fn: () => exportPNG(design), note: '共有用' },
     { label: 'STL', fn: () => exportSTL(design), note: '3Dプリント' },
     { label: 'GLB', fn: () => exportGLB(design), note: 'Web/AR' },
     { label: 'OBJ', fn: () => exportOBJ(design) },

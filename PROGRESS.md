@@ -39,7 +39,7 @@
 - [ ] テンプレ拡充（各カテゴリに映えるプリセット）
 - [ ] ツールチップ/ヒント、空状態の親切化、用語のやさしい言い換え
 - [ ] レスポンシブ/狭幅対応の最低限
-- [ ] スクリーンショット(PNG)書き出し、共有用JSONリンク（クエリ無し・file）
+- [x] スクリーンショット(PNG)書き出し（Canvas preserveDrawingBuffer→toDataURL、メニューに「画像保存(PNG)」）。共有用JSONは既存のJSON書き出しで対応
 - [ ] AIチャット語彙の大幅拡張（色・石種・形状・サイズ・刻印・素材）
 
 ## 横断
@@ -58,3 +58,4 @@
 - iter5: 画像の内部穴検出。imageContour.detectEnclosedHoles（補集合を境界からflood fill→囲まれた背景=穴）。上部穴は吊り穴判定（bail無効化）、他は装飾穴としてholesへ→3D貫通。check.tsの誤バチカン警告を上部穴ありなら抑制。タグ画像で2穴検出・貫通を実機確認。
 - iter6: 輪郭ノイズ低減。imageContourにopen(erode→dilate)/close(dilate→erode)の3x3モルフォロジーを前処理追加（半径1で内部穴は保持）。ノイズ点を多数散らした星画像で、背景・前景ノイズを無視してクリーンにトレースできることを実機確認。
 - iter7: 画像からの石検出。detectStones（前景平均色=金属から色差大かつ高彩度の画素→連結成分→面積上位）。色/位置/径を推定しdesign.stonesへbezel留めで配置。青+赤石のペンダント画像で2石を正しく再現（色・位置・サイズ）を実機確認。
+- iter8: 3DビューのPNG書き出し。CanvasにpreserveDrawingBufferを付与しcanvas.toDataURLでキャプチャ、エクスポートメニューに画像保存(PNG)を追加。toDataURLが830KBの実コンテンツPNG取得を確認。

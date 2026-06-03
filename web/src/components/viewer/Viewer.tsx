@@ -181,7 +181,7 @@ export default function Viewer() {
         shadows
         dpr={[1, 2]}
         camera={{ fov: 35, position: [30, 22, 36] }}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+        gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
         resize={{ debounce: 0, scroll: false }}
         onCreated={(state) => state.gl.render(state.scene, state.camera)}
         onPointerMissed={() => useDesignStore.getState().selectComponent(null)}
