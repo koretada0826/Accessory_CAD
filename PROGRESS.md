@@ -157,3 +157,4 @@
 - fix(画像): 暗背景・ボケ写真で被写体切り出し失敗(→円盤)を修正。buildForegroundMaskを四隅依存から
   「背景の最頻輝度モードからの輝度距離＋Otsu」に切替(cornerVar/前景率が異常時)、largestComponentを中央寄り重み付きに。otsuThresholdにmaxVal引数。合成画像テスト追加。27テスト合格。
 - feat(画像構造化): ネックレス画像を全体1輪郭にせず「アクセサリー構造」として分解。前処理をclose(r3で密集塊化)→open(r1で細線除去)に、bestSubjectComponent(穴埋め後面積×中央寄り×密集度でスコア)で広がったチェーンでなく中央ペンダントを選択。filled=外形/unfilled=穴石検出に分離→中央の空洞をdecoration holeでboolean cut=オープンティアドロップ再現。hasChain検出でnecklace化(チェーンプレビュー)。円形度ガードでしずく/ハートのリング誤変換を防止。実画像でPython試作検証→TS移植。28テスト合格。
+- feat(オープンティアドロップ): 画像を構造として再構成。PendantParamsにinnerCutout(任意形状の内抜き)/pave(片側カーブ小粒石)追加。buildPendantで内抜きをboolean cut(Earcut用に逆巻き補正)＝中抜きフレーム、buildPaveAlongOutlineで弧長等間隔パヴェ＋留め粒。templates.teardropOutline+signatureNecklace(外形しずく−内側しずく＋センターダイヤbezel＋左パヴェ16＋チェーン)をテンプレ先頭に。cad.py _pendantも内抜きcut対応(STEP+232KB)。29テスト合格。
