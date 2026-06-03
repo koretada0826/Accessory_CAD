@@ -9,6 +9,8 @@ import ChatPanel from '@/components/panels/ChatPanel';
 import PersistenceBridge from '@/components/PersistenceBridge';
 import WelcomeOverlay from '@/components/WelcomeOverlay';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { useDesignStore } from '@/store/useDesignStore';
 
 // 3DビューアはSSR不可（WebGL/window依存）のため client-only で読み込む
 const Viewer = dynamic(() => import('@/components/viewer/Viewer'), {
@@ -19,6 +21,9 @@ const Viewer = dynamic(() => import('@/components/viewer/Viewer'), {
 });
 
 export default function Page() {
+  const newProject = useDesignStore((s) => s.newProject);
+  const safeReset = () => newProject('ring');
+
   return (
     <div className="flex h-screen flex-col bg-ink-950">
       <PersistenceBridge />
@@ -29,26 +34,36 @@ export default function Page() {
       <div className="flex min-h-0 flex-1">
         {/* 左: アセット / カテゴリ / 画像 / テンプレ */}
         <aside className="w-64 shrink-0 border-r border-ink-700 glass">
-          <LeftSidebar />
+          <ErrorBoundary label="左パネル" onReset={safeReset}>
+            <LeftSidebar />
+          </ErrorBoundary>
         </aside>
 
         {/* 中央: 3Dビューア + 製造チェック */}
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="relative min-h-0 flex-1">
-            <Viewer />
+            <ErrorBoundary label="3Dビュー" onReset={safeReset}>
+              <Viewer />
+            </ErrorBoundary>
           </div>
           <div className="h-56 shrink-0 border-t border-ink-700 glass">
-            <ManufacturingPanel />
+            <ErrorBoundary label="製造チェック" onReset={safeReset}>
+              <ManufacturingPanel />
+            </ErrorBoundary>
           </div>
         </main>
 
         {/* 右: プロパティ編集 + AIチャット */}
         <aside className="flex w-80 shrink-0 flex-col border-l border-ink-700 glass">
           <div className="min-h-0 flex-1">
-            <PropertyPanel />
+            <ErrorBoundary label="編集パネル" onReset={safeReset}>
+              <PropertyPanel />
+            </ErrorBoundary>
           </div>
           <div className="h-80 shrink-0 border-t border-ink-700">
-            <ChatPanel />
+            <ErrorBoundary label="AIチャット" onReset={safeReset}>
+              <ChatPanel />
+            </ErrorBoundary>
           </div>
         </aside>
       </div>
