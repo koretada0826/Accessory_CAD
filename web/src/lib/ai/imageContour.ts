@@ -58,7 +58,10 @@ export async function extractContour(
   const { data, W, H } = await loadToImageData(dataUrl);
 
   const { mask, usedAlpha } = buildForegroundMask(data, W, H);
-  const comp = largestComponent(mask, W, H);
+  // ノイズ低減: open(微小スペック除去)→close(微小ピンホール埋め)。
+  // 半径1なので実際の内部穴(数px〜)は保持される。
+  const cleaned = morphClose(morphOpen(mask, W, H), W, H);
+  const comp = largestComponent(cleaned, W, H);
   if (!comp || comp.area < W * H * 0.015) return null; // 主要被写体が見つからない
 
   let contourPx = mooreTrace(comp.mask, W, H);
@@ -241,6 +244,54 @@ function buildForegroundMask(data: Uint8ClampedArray, W: number, H: number): { m
     mask[i] = dr * dr + dg * dg + db * db > T ? 1 : 0;
   }
   return { mask, usedAlpha };
+}
+
+// ---------------------------------------------------------------------------
+// 2.5 二値モルフォロジー（3x3・境界は複製）
+// ---------------------------------------------------------------------------
+function dilate3x3(mask: Uint8Array, W: number, H: number): Uint8Array {
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let v = 0;
+      for (let dy = -1; dy <= 1 && !v; dy++) {
+        const yy = Math.min(H - 1, Math.max(0, y + dy));
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = Math.min(W - 1, Math.max(0, x + dx));
+          if (mask[yy * W + xx]) { v = 1; break; }
+        }
+      }
+      out[y * W + x] = v;
+    }
+  }
+  return out;
+}
+
+function erode3x3(mask: Uint8Array, W: number, H: number): Uint8Array {
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let v = 1;
+      for (let dy = -1; dy <= 1 && v; dy++) {
+        const yy = Math.min(H - 1, Math.max(0, y + dy));
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = Math.min(W - 1, Math.max(0, x + dx));
+          if (!mask[yy * W + xx]) { v = 0; break; }
+        }
+      }
+      out[y * W + x] = v;
+    }
+  }
+  return out;
+}
+
+/** open = erode→dilate（微小スペック除去） */
+function morphOpen(mask: Uint8Array, W: number, H: number): Uint8Array {
+  return dilate3x3(erode3x3(mask, W, H), W, H);
+}
+/** close = dilate→erode（微小ピンホール埋め・縁の滑らか化） */
+function morphClose(mask: Uint8Array, W: number, H: number): Uint8Array {
+  return erode3x3(dilate3x3(mask, W, H), W, H);
 }
 
 // ---------------------------------------------------------------------------
