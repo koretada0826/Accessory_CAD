@@ -161,3 +161,4 @@
 - feat(ネックレス生成テンプレ強化): image→構造JSON→パラメトリック組立に転換。cable_chain(buildCableChain/makeOvalLink: 楕円リンク交互90°噛み合い＋引き輪＋アジャスター＋エンドタグ)、open_teardrop_frame(輪郭168/bevel8/curve128)、pave_curve/center_stone/bezel(丸ファセットN16)。analyzeImageでネックレス画像→signatureNecklaceに再構成(検出寸法反映)、失敗時も楕円板でなくオープンティアドロップへ。影2048。Viewerに編集/ヒーロー表示モード切替。29テスト合格。
 - 調査+fix(ネックレス全体): コード調査で「full_necklace_layout(楕円パス)未実装」が最大原因と特定。buildCableChain(開V字)→buildNecklaceLayout(閉じた縦長オーバル全周150リンク・接線+偶奇90°噛み合い・接続JR・上部clasp/extender/end-tag)に作替え。ペンダントが最下部に吊る"ネックレス全体"構図。dump検証(chain150/全高89mm)。29テスト合格。
 - feat(高精細+構図): 解像度up(teardrop輪郭208/宝石ファセット24/チェーンtorus16×32)＋ExtrudeのcurveSegments適正化(tri爆発回避)。描画=dpr[2,2.5]/HDRI2048/AA8x/DoF極浅(被写体ぼかさない)/Bloom控えめ/露出0.94。ヒーロー構図切替「全体/寄り」(CameraRigを実bbox中心+ペンダント寄りズーム対応)。最小肉厚measureを下位パーセンタイル(ベベルのナイフエッジ外れ値対策)に。29テスト合格。
+- fit(参考一致ループ): 参考画像をPython実測(ペンダント=全高45%/重心75%/aspect0.66)→生成モデルを2D投影実測→差分調整。オーバルa/b縮小(b=pendantH*0.6/a*1.12)＋リンク密(step0.42)。結果ペンダント43%/重心78.5%/aspect0.74/117リンクで参考に一致。
