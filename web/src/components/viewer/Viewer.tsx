@@ -244,11 +244,12 @@ export default function Viewer() {
     setNonce((n) => n + 1);
   };
 
-  const Btn = ({ active, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) => (
+  const Btn = ({ active, onClick, children, title }: { active?: boolean; onClick: () => void; children: React.ReactNode; title?: string }) => (
     <button
       onClick={onClick}
-      className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-        active ? 'bg-ink-700 text-white' : 'bg-ink-850/70 text-ink-400 hover:text-white'
+      title={title}
+      className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+        active ? 'bg-gold-500 text-ink-950' : 'bg-ink-850/70 text-ink-300 hover:bg-ink-800 hover:text-white'
       }`}
     >
       {children}
@@ -257,18 +258,20 @@ export default function Viewer() {
 
   return (
     <div className="relative h-full w-full">
-      {/* ビュー操作ツールバー */}
-      <div className="pointer-events-auto absolute left-1/2 top-3 z-10 flex -translate-x-1/2 gap-1 rounded-xl border border-ink-700 bg-ink-900/70 p-1 backdrop-blur">
-        <Btn active={preset === 'persp'} onClick={() => setView('persp')}>透視</Btn>
-        <Btn active={preset === 'front'} onClick={() => setView('front')}>正面</Btn>
-        <Btn active={preset === 'side'} onClick={() => setView('side')}>側面</Btn>
-        <Btn active={preset === 'back'} onClick={() => setView('back')}>背面</Btn>
-        <Btn active={preset === 'top'} onClick={() => setView('top')}>上面</Btn>
-        <div className="mx-1 w-px bg-ink-700" />
-        <Btn active={wireframe} onClick={() => setWireframe((v) => !v)}>ワイヤー</Btn>
-        <Btn active={grid} onClick={() => setGrid((v) => !v)}>グリッド</Btn>
-        <Btn active={dims} onClick={() => setDims((v) => !v)}>寸法</Btn>
-        <Btn active={spin} onClick={() => setSpin((v) => !v)}>自動回転</Btn>
+      {/* ビュー操作ツールバー（視点プリセット / 表示トグル） */}
+      <div className="pointer-events-auto absolute left-1/2 top-3 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-xl border border-ink-700 bg-ink-900/80 p-1 backdrop-blur">
+        <span className="hidden pl-1 pr-0.5 text-[10px] text-ink-500 sm:inline">視点</span>
+        <Btn active={preset === 'persp'} onClick={() => setView('persp')} title="透視投影（自由視点）">透視</Btn>
+        <Btn active={preset === 'front'} onClick={() => setView('front')} title="正面から">正面</Btn>
+        <Btn active={preset === 'side'} onClick={() => setView('side')} title="側面から">側面</Btn>
+        <Btn active={preset === 'back'} onClick={() => setView('back')} title="背面から">背面</Btn>
+        <Btn active={preset === 'top'} onClick={() => setView('top')} title="真上から">上面</Btn>
+        <div className="mx-1 hidden h-5 w-px bg-ink-700 sm:block" />
+        <span className="hidden pl-1 pr-0.5 text-[10px] text-ink-500 sm:inline">表示</span>
+        <Btn active={wireframe} onClick={() => setWireframe((v) => !v)} title="ワイヤーフレーム表示">ワイヤー</Btn>
+        <Btn active={grid} onClick={() => setGrid((v) => !v)} title="床グリッドの表示">グリッド</Btn>
+        <Btn active={dims} onClick={() => setDims((v) => !v)} title="寸法線の表示（幅・高さ・厚み）">寸法</Btn>
+        <Btn active={spin} onClick={() => setSpin((v) => !v)} title="自動回転のオン/オフ">自動回転</Btn>
       </div>
 
       <Canvas
