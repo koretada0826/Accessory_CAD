@@ -60,6 +60,12 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
   body.computeVertexNormals();
   parts.push({ id: 'body', geometry: body, role: 'metal', componentType: 'body' });
 
+  // 立体レリーフ（画像の陰影マップ→前面の隆起）。平板トレースを彫刻的フォルムへ。
+  if (p.relief && p.relief.depth > 0) {
+    const relief = buildReliefMesh(p);
+    if (relief) parts.push({ id: 'relief', geometry: relief, role: 'metal', componentType: 'body' });
+  }
+
   // リングバチカン / チューブバチカン
   if (p.bail.type === 'ring_bail' || p.bail.type === 'tube') {
     const r = p.bail.innerDiameter / 2 + p.bail.wall;
@@ -133,6 +139,55 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
       depth: p.thickness,
     },
   };
+}
+
+/**
+ * 立体レリーフのメッシュ。前面(+Z)に高さマップでグリッド面を張る。
+ * data[gj*gx+gi] が 0..1（外形マスク外は -1）。-1 のセルは面を張らない。
+ * 巻き順は PlaneGeometry に倣い +Z 法線（フロント面が正しく光る）。
+ */
+function buildReliefMesh(p: PendantParams): THREE.BufferGeometry | null {
+  const r = p.relief;
+  if (!r) return null;
+  const { gx, gy, data, depth } = r;
+  const w = p.width;
+  const h = p.height;
+  const baseZ = p.thickness / 2 + 0.1; // 本体前面のわずか上に乗せる（z-fight回避）
+
+  const positions = new Float32Array(gx * gy * 3);
+  for (let gj = 0; gj < gy; gj++) {
+    for (let gi = 0; gi < gx; gi++) {
+      const k = gj * gx + gi;
+      const hv = data[k];
+      const x = -w / 2 + (gi / (gx - 1)) * w;
+      const y = h / 2 - (gj / (gy - 1)) * h;
+      const z = baseZ + (hv > 0 ? hv : 0) * depth;
+      positions[k * 3] = x;
+      positions[k * 3 + 1] = y;
+      positions[k * 3 + 2] = z;
+    }
+  }
+
+  const indices: number[] = [];
+  for (let gj = 0; gj < gy - 1; gj++) {
+    for (let gi = 0; gi < gx - 1; gi++) {
+      const a = gi + gx * gj;
+      const b = gi + gx * (gj + 1);
+      const c = gi + 1 + gx * (gj + 1);
+      const d = gi + 1 + gx * gj;
+      // 4隅すべてがマスク内のセルのみ面を張る
+      if (data[a] >= 0 && data[b] >= 0 && data[c] >= 0 && data[d] >= 0) {
+        indices.push(a, b, d, b, c, d);
+      }
+    }
+  }
+  if (indices.length === 0) return null;
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
 }
 
 /** 点が多角形の内部にあるか（ray casting） */

@@ -57,6 +57,8 @@ export interface ContourResult {
   stones: DetectedStone[];
   /** 上部の突起バチカン（くびれ＋ループ）。検出時のみ */
   bail: DetectedBail | null;
+  /** 立体レリーフ用の高さマップ（gx×gy・0..1・マスク外=-1） */
+  relief: { gx: number; gy: number; data: number[] } | null;
   /** 製造可能性のため面取りした鋭利な角の数 */
   correctedCorners: number;
   /** 元画像に重ねる輪郭プレビュー（SVG path・処理座標系） */
@@ -167,6 +169,9 @@ export async function extractContour(
       }
     : null;
 
+  // 立体レリーフ用の高さマップ（陰影=高さ）を外形bbox上のグリッドで抽出
+  const relief = extractRelief(data, comp.mask, W, H, minX, minY, bw, bh);
+
   return {
     outline,
     widthMm,
@@ -176,6 +181,7 @@ export async function extractContour(
     holes,
     stones,
     bail,
+    relief,
     correctedCorners,
     overlayPath,
     imgW: W,
@@ -363,6 +369,67 @@ export function detectBail(
   const type = loopWidth > pinchSpan * 1.6 ? 'ring_bail' : 'tube';
   const innerDiaPx = Math.max(2, loopWidth * 0.42);
   return { cx, cy, type, innerDiaPx };
+}
+
+/**
+ * 立体レリーフ用の高さマップを抽出する。
+ * 外形bbox上に gx×gy グリッドを張り、各セルの輝度を高さとみなす（明るい=高い＝バスレリーフの定石）。
+ * 軽くブラーしてノイズを抑え、前景マスク内で 0..1 に正規化。マスク外は -1。
+ */
+function extractRelief(
+  data: Uint8ClampedArray,
+  mask: Uint8Array,
+  W: number,
+  H: number,
+  minX: number,
+  minY: number,
+  bw: number,
+  bh: number
+): { gx: number; gy: number; data: number[] } | null {
+  if (bw < 4 || bh < 4) return null;
+  const LONG = 72;
+  const gx = bw >= bh ? LONG : Math.max(8, Math.round((LONG * bw) / bh));
+  const gy = bh > bw ? LONG : Math.max(8, Math.round((LONG * bh) / bw));
+
+  const lum = new Float32Array(gx * gy);
+  const inside = new Uint8Array(gx * gy);
+  // 各セル中心の画像画素をサンプル（周囲3x3平均で軽く平滑化）
+  for (let gj = 0; gj < gy; gj++) {
+    for (let gi = 0; gi < gx; gi++) {
+      const px = Math.min(W - 1, Math.round(minX + (gi / (gx - 1)) * bw));
+      const py = Math.min(H - 1, Math.round(minY + (gj / (gy - 1)) * bh));
+      let sum = 0, cnt = 0, msk = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = Math.max(0, Math.min(W - 1, px + dx));
+          const y = Math.max(0, Math.min(H - 1, py + dy));
+          const idx = y * W + x;
+          sum += 0.299 * data[idx * 4] + 0.587 * data[idx * 4 + 1] + 0.114 * data[idx * 4 + 2];
+          cnt++;
+          msk += mask[idx];
+        }
+      }
+      const gidx = gj * gx + gi;
+      lum[gidx] = sum / cnt;
+      inside[gidx] = msk >= 5 ? 1 : 0; // 過半が前景なら内側
+    }
+  }
+
+  // マスク内で min/max を取り正規化
+  let lo = Infinity, hi = -Infinity, any = false;
+  for (let i = 0; i < lum.length; i++) {
+    if (!inside[i]) continue;
+    any = true;
+    if (lum[i] < lo) lo = lum[i];
+    if (lum[i] > hi) hi = lum[i];
+  }
+  if (!any || hi - lo < 1e-3) return null;
+
+  const out = new Array(gx * gy);
+  for (let i = 0; i < lum.length; i++) {
+    out[i] = inside[i] ? (lum[i] - lo) / (hi - lo) : -1;
+  }
+  return { gx, gy, data: out };
 }
 
 // ---------------------------------------------------------------------------

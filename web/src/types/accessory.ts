@@ -227,6 +227,17 @@ export interface PendantParams {
    * 正規化保持なので、トレース後も幅/高さスライダーで編集を継続できる。
    */
   outline?: Vec2[];
+  /**
+   * 画像由来の立体レリーフ（バスレリーフ）。画像の陰影から作った高さマップを
+   * 前面に隆起させ、平板トレースを立体化する。gx×gy のグリッド（行優先）。
+   * data は 0..1 の正規化高さ（外形マスク外は -1）。depth は最大隆起 mm。
+   */
+  relief?: {
+    gx: number;
+    gy: number;
+    data: number[];
+    depth: number;
+  };
 }
 
 export interface EarringsParams {

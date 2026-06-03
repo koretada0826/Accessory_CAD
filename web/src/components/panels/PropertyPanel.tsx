@@ -166,6 +166,10 @@ export default function PropertyPanel() {
             onChange={(v) => commit((d) => { if (d.params.kind === 'pendant') d.params.thickness = v; })} />
           <SliderField label="角丸" value={p.cornerRadius} min={0} max={12}
             onChange={(v) => commit((d) => { if (d.params.kind === 'pendant') d.params.cornerRadius = v; })} />
+          {p.relief && (
+            <SliderField label="立体レリーフの強さ" value={p.relief.depth} min={0} max={4} step={0.1} unit="mm"
+              onChange={(v) => commit((d) => { if (d.params.kind === 'pendant' && d.params.relief) d.params.relief.depth = v; })} />
+          )}
           <div>
             <div className="mb-1 text-xs text-ink-300/90">バチカン</div>
             <Segmented

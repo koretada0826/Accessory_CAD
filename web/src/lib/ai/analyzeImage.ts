@@ -99,6 +99,16 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
         design.params.cornerRadius = 0;
         design.params.bail = { type: 'integrated_hole', innerDiameter: 3, wall: 1.6 };
 
+        // 立体レリーフ（画像の陰影→前面の隆起）。薄板を彫刻的フォルムへ。
+        if (contour.relief) {
+          design.params.relief = {
+            gx: contour.relief.gx,
+            gy: contour.relief.gy,
+            data: contour.relief.data,
+            depth: Math.max(0.6, Math.min(2.4, contour.heightMm * 0.08)),
+          };
+        }
+
         // 検出した内部穴（くり抜き）を反映。上部の穴は吊り穴(bail)として扱う
         const topHole = contour.holes.find((h) => h.isTop);
         for (const h of contour.holes) {
@@ -155,6 +165,9 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
       }
       if (contour.stones.length > 0) {
         features.push(`石 ${contour.stones.length}個を検出（色・位置・サイズを推定）`);
+      }
+      if (contour.relief) {
+        features.push('陰影から立体レリーフを生成（前面を隆起・彫刻的フォルムに）');
       }
       if (contour.correctedCorners > 0) {
         features.push(`鋭利な角 ${contour.correctedCorners}箇所を製造向けに面取り`);

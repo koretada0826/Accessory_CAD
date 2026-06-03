@@ -47,6 +47,33 @@ describe('geometry.buildModel', () => {
     }
   });
 
+  it('画像レリーフ: relief付きペンダントは隆起メッシュを生成する', () => {
+    const d = createDesign('pendant');
+    if (d.params.kind === 'pendant') {
+      d.params.shape = 'custom';
+      d.params.outline = [
+        { x: -0.5, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: -0.5 }, { x: -0.5, y: -0.5 },
+      ];
+      // 4x4 の高さマップ（中央が高い）
+      const gx = 4, gy = 4;
+      const data: number[] = [];
+      for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) {
+        const cx = (i - 1.5) / 1.5, cy = (j - 1.5) / 1.5;
+        data.push(Math.max(0, 1 - Math.hypot(cx, cy)));
+      }
+      d.params.relief = { gx, gy, data, depth: 1.5 };
+    }
+    const model = buildModel(d);
+    const relief = model.parts.find((p) => p.id === 'relief');
+    expect(relief).toBeTruthy();
+    const pos = relief!.geometry.getAttribute('position');
+    expect(pos.count).toBeGreaterThan(0);
+    let zmax = -Infinity;
+    for (let i = 0; i < pos.count; i++) zmax = Math.max(zmax, pos.getZ(i));
+    // 中央が depth ぶん隆起している（前面 thickness/2 より高い）
+    expect(zmax).toBeGreaterThan(d.params.kind === 'pendant' ? d.params.thickness / 2 : 0);
+  });
+
   it('estimateVolumeMm3 は正の体積を返す', () => {
     for (const c of CATS) {
       expect(estimateVolumeMm3(createDesign(c))).toBeGreaterThan(0);
