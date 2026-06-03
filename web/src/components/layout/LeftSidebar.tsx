@@ -5,11 +5,7 @@ import { useDesignStore } from '@/store/useDesignStore';
 import { CATEGORY_LABELS } from '@/lib/data/factory';
 import { FULLY_IMPLEMENTED, type Category } from '@/types/accessory';
 import { TEMPLATES } from '@/lib/data/templates';
-
-const CATEGORY_ICONS: Record<Category, string> = {
-  pendant: '🔷', ring: '💍', earrings: '👂', earcuff: '🌙', bracelet: '🔗', necklace: '📿',
-  charm: '🧿', dogtag: '🏷️', signet: '🛡️', band: '⭕', stone_ring: '✨', hoop: '🟡',
-};
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
 const PRIORITY: Category[] = ['pendant', 'ring', 'earrings', 'bracelet'];
 const OTHERS: Category[] = ['necklace', 'signet', 'stone_ring', 'band', 'hoop', 'earcuff', 'charm', 'dogtag'];
@@ -55,7 +51,7 @@ export default function LeftSidebar() {
           design.category === c ? 'border-gold-500 bg-ink-800' : 'border-ink-700 bg-ink-850 hover:border-ink-600'
         }`}
       >
-        <span className="text-lg">{CATEGORY_ICONS[c]}</span>
+        <CategoryIcon category={c} className={design.category === c ? 'text-gold-400' : 'text-ink-300'} />
         <span className="text-[10px] leading-tight text-ink-200">{CATEGORY_LABELS[c]}</span>
         {!impl && <span className="absolute right-1 top-1 rounded bg-accent-500/20 px-1 text-[8px] text-accent-400">β</span>}
       </button>
