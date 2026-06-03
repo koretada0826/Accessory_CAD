@@ -6,6 +6,7 @@ import { CATEGORY_LABELS } from '@/lib/data/factory';
 import { FULLY_IMPLEMENTED, type Category } from '@/types/accessory';
 import { TEMPLATES } from '@/lib/data/templates';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { TemplateIcon } from '@/components/ui/TemplateIcon';
 import { HelpHint } from '@/components/ui/HelpHint';
 
 const PRIORITY: Category[] = ['pendant', 'ring', 'earrings', 'bracelet'];
@@ -156,7 +157,7 @@ export default function LeftSidebar() {
                 onClick={() => loadTemplate(t)}
                 className="flex w-full items-center gap-3 rounded-xl border border-ink-700 bg-ink-850 p-2.5 text-left hover:border-gold-500"
               >
-                <span className="text-xl">{t.emoji}</span>
+                <TemplateIcon id={t.id} category={t.category} className="shrink-0 text-ink-200" />
                 <div>
                   <div className="text-xs text-white">{t.name}</div>
                   <div className="text-[10px] text-ink-500">{CATEGORY_LABELS[t.category]}</div>
