@@ -294,12 +294,15 @@ function DimensionLabel() {
 }
 
 export default function Viewer() {
+  // 表示モード: hero=広告レンダー(DoF/反射床/被写界深度) / edit=編集(グリッド/寸法/くっきり)
+  const [view, setView2] = useState<'hero' | 'edit'>('hero');
   const [wireframe, setWireframe] = useState(false);
   const [grid, setGrid] = useState(false);
-  const [dims, setDims] = useState(true);
+  const [dims, setDims] = useState(false);
   const [preset, setPreset] = useState<ViewPreset>('persp');
   const [nonce, setNonce] = useState(0);
   const [spin, setSpin] = useState(false);
+  const hero = view === 'hero';
 
   // R3F は flexbox 内で初回サイズを 0 と測定し、GLルート生成を遅延することがある
   // （ResizeObserver の初回コールバックが取りこぼされるケース）。
@@ -329,6 +332,12 @@ export default function Viewer() {
 
   return (
     <div className="relative h-full w-full">
+      {/* 表示モード切替（編集 / ヒーローレンダー） */}
+      <div className="glass pointer-events-auto absolute left-3 top-3 z-10 flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
+        <Btn active={view === 'edit'} onClick={() => setView2('edit')} title="編集ビュー（グリッド・寸法・くっきり表示）">編集</Btn>
+        <Btn active={view === 'hero'} onClick={() => setView2('hero')} title="ヒーローレンダー（広告のような被写界深度・反射床）">ヒーロー</Btn>
+      </div>
+
       {/* ビュー操作ツールバー（視点プリセット / 表示トグル） */}
       <div className="glass pointer-events-auto absolute left-1/2 top-3 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-2xl border border-ink-700/70 p-1.5 shadow-panel">
         <span className="hidden pl-1.5 pr-1 text-[9px] uppercase tracking-luxe text-ink-500 sm:inline">視点</span>
@@ -371,8 +380,8 @@ export default function Viewer() {
         <AccessoryMeshes wireframe={wireframe} />
         {dims && <DimensionLabel />}
 
-        {/* 反射フロア（製品写真風の艶のある黒床に作品が映り込む） */}
-        {!grid && (
+        {/* 反射フロア（製品写真風の艶のある黒床に作品が映り込む。ヒーロー時のみ） */}
+        {hero && !grid && (
           <mesh position={[0, -12.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[400, 400]} />
             <MeshReflectorMaterial
@@ -430,14 +439,17 @@ export default function Viewer() {
           />
         </GizmoHelper>
 
-        {/* 後処理: マクロ撮影風の被写界深度＋上品なBloom＋周辺減光でシネマティックに。
-            DoFは中央(原点)にフォーカスし背景をやわらかくぼかす（広告のような奥行き）。 */}
-        {!wireframe && (
+        {/* 後処理。ヒーロー=広告風(被写界深度＋Bloom＋周辺減光)、編集=くっきり(軽いBloomのみ) */}
+        {!wireframe && hero && (
           <EffectComposer multisampling={4}>
             <DepthOfField target={[0, 0, 0]} focalLength={0.02} bokehScale={2.4} height={480} />
-            {/* Bloomは“きらめきの芯”だけを拾う極控えめ設定（石を発光させない・白飛びさせない） */}
             <Bloom mipmapBlur intensity={0.18} luminanceThreshold={0.95} luminanceSmoothing={0.12} radius={0.5} />
             <Vignette offset={0.3} darkness={0.6} eskil={false} />
+          </EffectComposer>
+        )}
+        {!wireframe && !hero && (
+          <EffectComposer multisampling={4}>
+            <Bloom mipmapBlur intensity={0.1} luminanceThreshold={0.96} luminanceSmoothing={0.1} radius={0.4} />
           </EffectComposer>
         )}
       </Canvas>
