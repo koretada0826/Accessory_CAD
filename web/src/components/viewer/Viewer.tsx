@@ -17,6 +17,17 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
   const selectedId = useDesignStore((s) => s.selectedComponentId);
   const components = design.components;
   const selectComponent = useDesignStore((s) => s.selectComponent);
+  const moveStone = useDesignStore((s) => s.moveStone);
+  const controls = useThree((s) => s.controls) as any;
+
+  // 石ドラッグ（ペンダントのみ）
+  const [drag, setDrag] = useState<{ index: number; z: number } | null>(null);
+  const firstMove = useRef(true);
+  const params = design.params;
+  const isPendant = params.kind === 'pendant';
+  const pw = params.kind === 'pendant' ? params.width : 0;
+  const ph = params.kind === 'pendant' ? params.height : 0;
+  const pt = params.kind === 'pendant' ? params.thickness : 0;
 
   const { model, mat, patternRoughness } = useMemo(() => {
     const model = buildModel(design);
@@ -33,6 +44,12 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
 
   // 選択中 component の type（ハイライト対象）
   const selectedType = components.find((c) => c.id === selectedId)?.type;
+
+  const endDrag = () => {
+    setDrag(null);
+    if (controls) controls.enabled = true;
+    document.body.style.cursor = 'auto';
+  };
 
   return (
     <group rotation={[0, 0, 0]}>
@@ -78,6 +95,54 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
           </mesh>
         );
       })}
+
+      {/* 石のドラッグ用 透明グラブハンドル（ペンダントのみ・宝石より大きめで掴みやすい） */}
+      {isPendant &&
+        design.stones.map((st, i) => {
+          const z = pt / 2 + st.diameter * 0.15;
+          const r = Math.max(st.diameter * 0.75, 2.2);
+          return (
+            <mesh
+              key={`grab-${i}`}
+              position={[st.position.x, st.position.y, z]}
+              onPointerOver={() => { document.body.style.cursor = 'grab'; }}
+              onPointerOut={() => { if (!drag) document.body.style.cursor = 'auto'; }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                firstMove.current = true;
+                setDrag({ index: i, z });
+                if (controls) controls.enabled = false;
+                document.body.style.cursor = 'grabbing';
+              }}
+            >
+              <sphereGeometry args={[r, 12, 12]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+            </mesh>
+          );
+        })}
+
+      {/* 石ドラッグ用の透明キャッチャー（ドラッグ中のみ）。広い平面で確実にmoveを拾う */}
+      {drag && (
+        <mesh
+          position={[0, 0, drag.z]}
+          onPointerMove={(e) => {
+            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -drag.z);
+            const hit = new THREE.Vector3();
+            if (e.ray.intersectPlane(plane, hit)) {
+              const x = Math.max(-pw / 2 * 0.92, Math.min(pw / 2 * 0.92, hit.x));
+              const y = Math.max(-ph / 2 * 0.92, Math.min(ph / 2 * 0.92, hit.y));
+              moveStone(drag.index, Math.round(x * 10) / 10, Math.round(y * 10) / 10, firstMove.current);
+              firstMove.current = false;
+            }
+          }}
+          onPointerUp={endDrag}
+          onPointerLeave={endDrag}
+        >
+          <planeGeometry args={[600, 600]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
+
       <EngravingDecal />
     </group>
   );

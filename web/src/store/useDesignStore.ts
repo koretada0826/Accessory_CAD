@@ -36,6 +36,8 @@ interface DesignState {
 
   selectComponent: (id: string | null) => void;
   setMaterial: (id: MaterialId) => void;
+  /** 石の位置をドラッグ更新（pushHistory=trueの時だけ履歴に積む＝ドラッグ開始時のみ） */
+  moveStone: (index: number, x: number, y: number, pushHistory: boolean) => void;
 
   setUiMode: (mode: UiMode) => void;
   surpriseMe: (category?: Category) => void;
@@ -117,6 +119,20 @@ export const useDesignStore = create<DesignState>((set, get) => ({
   selectComponent: (id) => set({ selectedComponentId: id }),
 
   setMaterial: (id) => get().commit((d) => void (d.materialId = id), 'material'),
+
+  moveStone: (index, x, y, pushHistory) => {
+    const { design, past } = get();
+    if (!design.stones[index]) return;
+    const draft: AccessoryDesign = structuredClone(design);
+    draft.stones[index].position = { x, y };
+    const { design: next, report } = withReport(draft);
+    set({
+      design: next,
+      report,
+      past: pushHistory ? [...past.slice(-HISTORY_LIMIT + 1), design] : past,
+      future: [],
+    });
+  },
 
   newProject: (category) => {
     const d = createDesign(category);
