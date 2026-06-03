@@ -213,7 +213,7 @@ function buildNecklaceLayout(
   const parts: BuiltPart[] = [];
   const wire = 0.18;
   const linkLen = 1.9, linkWidth = 1.3;
-  const step = linkLen * 0.55; // 噛み合うよう重ねる
+  const step = linkLen * 0.42; // 噛み合うよう密に重ねる（リンク感を出す）
 
   const placeLink = (x: number, y: number, ang: number, parity: number, id: string) => {
     const link = makeOvalLink(linkLen, linkWidth, wire);
@@ -228,8 +228,9 @@ function buildNecklaceLayout(
   };
 
   // 縦長オーバル: 横半径a・縦半径b。最下点(θ=0)を (cx,cy)＝ペンダント接続点に。
-  const a = Math.max(pendantW * 1.5, 17);
-  const b = Math.max(pendantH * 1.55, 26);
+  // 参考画像の比率に合わせる（全体縦長aspect~0.65 / ペンダントが全高の~45% / 重心75%下）。
+  const a = Math.max(pendantW * 1.12, 14.5);
+  const b = Math.max(pendantH * 0.6, 11.5);
   const ovalCy = cy + b;
   const per = Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
   const N = Math.max(120, Math.round(per / step));
