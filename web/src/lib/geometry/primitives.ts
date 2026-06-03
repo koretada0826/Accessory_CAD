@@ -101,6 +101,42 @@ export function rectProfile(thickness: number, width: number, round = 0): THREE.
   return pts;
 }
 
+/** 面取り断面（平打＋端面チャンファ）。クリスプで現代的な高級バンド */
+export function chamferProfile(thickness: number, width: number, chamfer?: number): THREE.Vector2[] {
+  const t = thickness / 2;
+  const w = width / 2;
+  const c = Math.min(chamfer ?? Math.min(t, w) * 0.32, t * 0.7, w * 0.5);
+  // 八角形（矩形の四隅を45°カット）。rectProfileと同じCCW巻き。x=radial, y=axial(z)
+  return [
+    new THREE.Vector2(-t + c, -w),
+    new THREE.Vector2(t - c, -w),
+    new THREE.Vector2(t, -w + c),
+    new THREE.Vector2(t, w - c),
+    new THREE.Vector2(t - c, w),
+    new THREE.Vector2(-t + c, w),
+    new THREE.Vector2(-t, w - c),
+    new THREE.Vector2(-t, -w + c),
+  ];
+}
+
+/** コンフォート（甲丸）断面: 外側=なめらかなドーム / 内側=指あたりの良いフラット寄り */
+export function comfortProfile(thickness: number, width: number, seg = 12): THREE.Vector2[] {
+  const t = thickness / 2;
+  const w = width / 2;
+  const pts: THREE.Vector2[] = [];
+  // 内側フラット面（x=-t）: 下→上
+  pts.push(new THREE.Vector2(-t, -w * 0.92));
+  pts.push(new THREE.Vector2(-t, w * 0.92));
+  pts.push(new THREE.Vector2(-t + t * 0.15, w)); // 上の小肩
+  // 外側ドーム（x:+方向へ膨らむ半楕円）: 上→下
+  for (let i = 0; i <= seg; i++) {
+    const a = (i / seg) * Math.PI - Math.PI / 2; // -90°..+90°
+    pts.push(new THREE.Vector2(t * Math.cos(a), w * 0.96 * Math.sin(a) * -1));
+  }
+  pts.push(new THREE.Vector2(-t + t * 0.15, -w)); // 下の小肩
+  return pts;
+}
+
 /** 楕円断面（round profile） */
 export function ellipseProfile(thickness: number, width: number, seg = 24): THREE.Vector2[] {
   const t = thickness / 2;

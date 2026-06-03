@@ -3,13 +3,14 @@ import type { AccessoryDesign, RingParams } from '@/types/accessory';
 import {
   BuiltModel,
   BuiltPart,
+  chamferProfile,
+  comfortProfile,
   ellipseProfile,
   knifeProfile,
   makeBezel,
   makeGem,
   makeMilgrain,
   makeProngs,
-  rectProfile,
   sweepProfile,
 } from './primitives';
 
@@ -32,14 +33,14 @@ export function buildRing(design: AccessoryDesign, p: RingParams): BuiltModel {
       profile = ellipseProfile(p.bandThickness, p.bandWidth);
       break;
     case 'comfort':
-      profile = rectProfile(p.bandThickness, p.bandWidth, Math.min(p.bandThickness, p.bandWidth) * 0.45);
+      profile = comfortProfile(p.bandThickness, p.bandWidth);
       break;
     case 'knife':
       profile = knifeProfile(p.bandThickness, p.bandWidth);
       break;
     case 'flat':
     default:
-      profile = rectProfile(p.bandThickness, p.bandWidth, 0.15);
+      profile = chamferProfile(p.bandThickness, p.bandWidth);
       break;
   }
   const band = sweepProfile(profile, centerR, 220);
