@@ -20,12 +20,18 @@ export interface MeshHealth {
   triangles: number;
   /** 水密でないパーツのid */
   openParts: string[];
+  /** レイキャストで実測した最小肉厚 mm（測れない場合 null） */
+  minWallMm: number | null;
+  /** 最小肉厚が観測されたパーツid */
+  thinnestPart: string | null;
 }
 
 export function analyzeMeshHealth(model: BuiltModel): MeshHealth {
   let triangles = 0;
   let solids = 0;
   const openParts: string[] = [];
+  let minWallMm: number | null = null;
+  let thinnestPart: string | null = null;
 
   for (const part of model.parts) {
     if (part.role !== 'metal') continue; // 宝石(transmission)は対象外
@@ -33,9 +39,112 @@ export function analyzeMeshHealth(model: BuiltModel): MeshHealth {
     const { tri, manifold } = analyzeGeometry(part.geometry);
     triangles += tri;
     if (!manifold) openParts.push(part.id);
+
+    const t = measurePartMinWall(part.geometry);
+    if (t !== null && (minWallMm === null || t < minWallMm)) {
+      minWallMm = t;
+      thinnestPart = part.id;
+    }
   }
 
-  return { allManifold: openParts.length === 0, solids, triangles, openParts };
+  return {
+    allManifold: openParts.length === 0,
+    solids,
+    triangles,
+    openParts,
+    minWallMm: minWallMm === null ? null : Math.round(minWallMm * 100) / 100,
+    thinnestPart,
+  };
+}
+
+/**
+ * 1パーツの最小肉厚をレイキャストで実測する。
+ * 各三角形の重心から面の内向き(-法線)へレイを飛ばし、同一パーツの反対面までの
+ * 距離を肉厚とみなす。サンプル数は上限を設けて軽量に（編集ごとに再計算されるため）。
+ *
+ * 近似なので「目安」。鋭角な凹部などでは過小に出るため、ごく小さい値は無視する。
+ */
+function measurePartMinWall(geom: { attributes: any; index: any }): number | null {
+  const pos = geom.attributes?.position;
+  if (!pos) return null;
+  const idx = geom.index;
+  const triCount = (idx ? idx.count : pos.count) / 3;
+  if (triCount < 4) return null;
+
+  // 三角形を平坦配列に展開（ax,ay,az, bx..., cx...）
+  const tris: number[][] = [];
+  const gi = (i: number) => (idx ? idx.getX(i) : i);
+  for (let i = 0; i < triCount * 3; i += 3) {
+    const a = gi(i), b = gi(i + 1), c = gi(i + 2);
+    tris.push([
+      pos.getX(a), pos.getY(a), pos.getZ(a),
+      pos.getX(b), pos.getY(b), pos.getZ(b),
+      pos.getX(c), pos.getY(c), pos.getZ(c),
+    ]);
+  }
+  const n = tris.length;
+  const SAMPLES = Math.min(110, n);
+  const stride = Math.max(1, Math.floor(n / SAMPLES));
+  const EPS = 1e-3;
+  let minWall = Infinity;
+
+  for (let s = 0; s < n; s += stride) {
+    const T = tris[s];
+    // 面法線
+    const ux = T[3] - T[0], uy = T[4] - T[1], uz = T[5] - T[2];
+    const vx = T[6] - T[0], vy = T[7] - T[1], vz = T[8] - T[2];
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const nl = Math.hypot(nx, ny, nz);
+    if (nl < 1e-9) continue;
+    nx /= nl; ny /= nl; nz /= nl;
+    // 重心
+    const cx = (T[0] + T[3] + T[6]) / 3;
+    const cy = (T[1] + T[4] + T[7]) / 3;
+    const cz = (T[2] + T[5] + T[8]) / 3;
+    // 内向き(-法線)へレイ
+    const ox = cx - nx * EPS, oy = cy - ny * EPS, oz = cz - nz * EPS;
+    const dx = -nx, dy = -ny, dz = -nz;
+
+    let best = Infinity;
+    for (let j = 0; j < n; j++) {
+      if (j === s) continue;
+      const t = rayTri(ox, oy, oz, dx, dy, dz, tris[j]);
+      if (t !== null && t > EPS && t < best) best = t;
+    }
+    if (best < minWall) minWall = best;
+  }
+
+  // 0付近（自己交差ノイズ）と無限大は無効
+  if (!isFinite(minWall) || minWall < 0.05) return null;
+  return minWall;
+}
+
+/** Möller–Trumbore: レイと三角形の交差距離 t（無ければ null）。背面も拾う */
+function rayTri(
+  ox: number, oy: number, oz: number,
+  dx: number, dy: number, dz: number,
+  T: number[]
+): number | null {
+  const e1x = T[3] - T[0], e1y = T[4] - T[1], e1z = T[5] - T[2];
+  const e2x = T[6] - T[0], e2y = T[7] - T[1], e2z = T[8] - T[2];
+  const px = dy * e2z - dz * e2y;
+  const py = dz * e2x - dx * e2z;
+  const pz = dx * e2y - dy * e2x;
+  const det = e1x * px + e1y * py + e1z * pz;
+  if (Math.abs(det) < 1e-9) return null;
+  const inv = 1 / det;
+  const tx = ox - T[0], ty = oy - T[1], tz = oz - T[2];
+  const u = (tx * px + ty * py + tz * pz) * inv;
+  if (u < -1e-6 || u > 1 + 1e-6) return null;
+  const qx = ty * e1z - tz * e1y;
+  const qy = tz * e1x - tx * e1z;
+  const qz = tx * e1y - ty * e1x;
+  const v = (dx * qx + dy * qy + dz * qz) * inv;
+  if (v < -1e-6 || u + v > 1 + 1e-6) return null;
+  const t = (e2x * qx + e2y * qy + e2z * qz) * inv;
+  return t > 0 ? t : null;
 }
 
 /** 位置を量子化して頂点を同一視し、エッジの共有枚数を数える */

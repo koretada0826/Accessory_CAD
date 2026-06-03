@@ -123,9 +123,24 @@ export function runManufacturingCheck(design: AccessoryDesign): ManufacturingRep
   }
 
   // --- メッシュ健全性（水密/manifold の実測） ---
-  let meshHealth: MeshHealth = { allManifold: true, solids: 0, triangles: 0, openParts: [] };
+  let meshHealth: MeshHealth = { allManifold: true, solids: 0, triangles: 0, openParts: [], minWallMm: null, thinnestPart: null };
   try {
     meshHealth = analyzeMeshHealth(buildModel(design));
+    // 実測肉厚（レイキャスト）が規定を割れば警告。パラメータ未捕捉の薄肉も拾う。
+    if (meshHealth.minWallMm !== null) {
+      const tol = 0.15; // 近似ゆえの許容（過小評価のバッファ）
+      if (meshHealth.minWallMm + tol < r.minWallThickness) {
+        warnings.push(
+          w(
+            'warning',
+            '実測肉厚が薄い箇所',
+            `メッシュ実測の最小肉厚 約${meshHealth.minWallMm}mm（推奨 ${r.minWallThickness}mm）。薄い部分が割れやすい可能性があります。`,
+            meshHealth.thinnestPart ?? undefined,
+            `該当パーツを ${r.minWallThickness}mm 以上に`
+          )
+        );
+      }
+    }
     if (!meshHealth.allManifold) {
       warnings.push(
         w(
@@ -155,9 +170,9 @@ export function runManufacturingCheck(design: AccessoryDesign): ManufacturingRep
       w(
         'info',
         meshHealth.allManifold ? '水密(manifold) ✓' : 'メッシュ要確認',
-        `${meshHealth.solids}個の独立ソリッド / 約${meshHealth.triangles.toLocaleString()}三角形。${
-          meshHealth.solids > 1 ? '3Dプリント時はスライサが自動結合します。' : ''
-        }`
+        `${meshHealth.solids}個の独立ソリッド / 約${meshHealth.triangles.toLocaleString()}三角形${
+          meshHealth.minWallMm !== null ? ` / 実測最小肉厚 約${meshHealth.minWallMm}mm` : ''
+        }。${meshHealth.solids > 1 ? '3Dプリント時はスライサが自動結合します。' : ''}`
       )
     );
   }

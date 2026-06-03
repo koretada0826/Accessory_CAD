@@ -19,6 +19,30 @@ describe('manufacturing.check', () => {
     expect(r.warnings.some((w) => w.severity === 'error')).toBe(true);
     expect(r.printable).toBe(false);
   });
+
+  it('実測肉厚: ペンダント厚みに近い妥当な最小肉厚を測れる', () => {
+    const d = createDesign('pendant');
+    if (d.params.kind === 'pendant') {
+      d.params.shape = 'disc';
+      d.params.thickness = 1.8;
+    }
+    const r = runManufacturingCheck(d);
+    expect(r.meshHealth.minWallMm).not.toBeNull();
+    // 円盤の最小肉厚は厚み(=1.8mm)付近に出るはず（近似ゆえ広めの許容）
+    expect(r.meshHealth.minWallMm!).toBeGreaterThan(0.5);
+    expect(r.meshHealth.minWallMm!).toBeLessThan(4);
+  });
+
+  it('実測肉厚: 極薄ペンダントは肉厚警告を出す', () => {
+    const d = createDesign('pendant');
+    if (d.params.kind === 'pendant') {
+      d.params.shape = 'disc';
+      d.params.thickness = 0.4;
+    }
+    const r = runManufacturingCheck(d);
+    expect(r.meshHealth.minWallMm).not.toBeNull();
+    expect(r.meshHealth.minWallMm!).toBeLessThan(0.9);
+  });
 });
 
 describe('manufacturing.cost', () => {
