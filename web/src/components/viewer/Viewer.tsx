@@ -262,8 +262,8 @@ export default function Viewer() {
     <button
       onClick={onClick}
       title={title}
-      className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-        active ? 'bg-gold-500 text-ink-950' : 'bg-ink-850/70 text-ink-300 hover:bg-ink-800 hover:text-white'
+      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1 text-xs transition-all duration-200 ${
+        active ? 'bg-ink-800 font-medium text-gold-400 shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset]' : 'text-ink-400 hover:text-white'
       }`}
     >
       {children}
@@ -273,15 +273,15 @@ export default function Viewer() {
   return (
     <div className="relative h-full w-full">
       {/* ビュー操作ツールバー（視点プリセット / 表示トグル） */}
-      <div className="pointer-events-auto absolute left-1/2 top-3 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-xl border border-ink-700 bg-ink-900/80 p-1 backdrop-blur">
-        <span className="hidden pl-1 pr-0.5 text-[10px] text-ink-500 sm:inline">視点</span>
+      <div className="glass pointer-events-auto absolute left-1/2 top-3 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-2xl border border-ink-700/70 p-1.5 shadow-panel">
+        <span className="hidden pl-1.5 pr-1 text-[9px] uppercase tracking-luxe text-ink-500 sm:inline">視点</span>
         <Btn active={preset === 'persp'} onClick={() => setView('persp')} title="透視投影（自由視点）">透視</Btn>
         <Btn active={preset === 'front'} onClick={() => setView('front')} title="正面から">正面</Btn>
         <Btn active={preset === 'side'} onClick={() => setView('side')} title="側面から">側面</Btn>
         <Btn active={preset === 'back'} onClick={() => setView('back')} title="背面から">背面</Btn>
         <Btn active={preset === 'top'} onClick={() => setView('top')} title="真上から">上面</Btn>
-        <div className="mx-1 hidden h-5 w-px bg-ink-700 sm:block" />
-        <span className="hidden pl-1 pr-0.5 text-[10px] text-ink-500 sm:inline">表示</span>
+        <div className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
+        <span className="hidden pl-1.5 pr-1 text-[9px] uppercase tracking-luxe text-ink-500 sm:inline">表示</span>
         <Btn active={wireframe} onClick={() => setWireframe((v) => !v)} title="ワイヤーフレーム表示">ワイヤー</Btn>
         <Btn active={grid} onClick={() => setGrid((v) => !v)} title="床グリッドの表示">グリッド</Btn>
         <Btn active={dims} onClick={() => setDims((v) => !v)} title="寸法線の表示（幅・高さ・厚み）">寸法</Btn>
@@ -400,8 +400,14 @@ export default function Viewer() {
 
       <ContextTip />
 
-      <div className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-ink-900/70 px-2 py-1 text-[10px] text-ink-500">
-        ドラッグ=回転 / ホイール=ズーム / 右ドラッグ=パン ・ パーツをクリックで選択
+      {/* シネマティックな縁取り（作品を中央に浮かび上がらせる） */}
+      <div className="pointer-events-none absolute inset-0 z-[5] [box-shadow:inset_0_0_140px_40px_rgba(0,0,0,0.55)]" />
+
+      {/* ブランド透かし（SNS/TikTokのフレームでも成立する） */}
+      <div className="pointer-events-none absolute bottom-3 left-4 z-10 font-display text-sm tracking-wide text-white/20">Atelier</div>
+
+      <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-lg bg-ink-950/40 px-2.5 py-1 text-[10px] text-ink-500 backdrop-blur-sm">
+        ドラッグ=回転 / ホイール=ズーム / 右ドラッグ=パン
       </div>
     </div>
   );

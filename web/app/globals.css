@@ -2,64 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-sans: 'Inter', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', system-ui, sans-serif;
-}
-
 html,
 body {
   height: 100%;
-  background: #0a0a0f;
-  color: #e7e7ef;
+  /* シネマティックな暗背景: 中央上がわずかに持ち上がるラジアル＋深い黒 */
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(40, 36, 28, 0.55) 0%, rgba(10, 11, 17, 0) 42%),
+    radial-gradient(80% 60% at 50% 120%, rgba(30, 34, 52, 0.4) 0%, rgba(6, 7, 11, 0) 55%),
+    #06070b;
+  color: #ece9e1; /* 温かみのあるオフホワイト */
   overscroll-behavior: none;
+  font-feature-settings: 'cv02', 'cv11', 'ss01';
 }
 
 * {
   box-sizing: border-box;
 }
 
-/* スクロールバー（ダーク） */
+::selection {
+  background: rgba(216, 189, 128, 0.28);
+  color: #fff;
+}
+
+/* スクロールバー（細く上品に） */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #34343f;
-  border-radius: 8px;
+  background: #262833;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #343745;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* レンジスライダー */
+/* レンジスライダー（細トラック＋シャンパンゴールドのつまみ） */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
-  height: 4px;
+  height: 3px;
   border-radius: 999px;
-  background: #34343f;
+  background: linear-gradient(90deg, #2c2f3a, #20222c);
   outline: none;
 }
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
-  background: #e6c068;
+  background: linear-gradient(160deg, #ecdcad, #b89a55);
   cursor: pointer;
-  box-shadow: 0 0 0 3px rgba(230, 192, 104, 0.18);
+  box-shadow: 0 0 0 3px rgba(216, 189, 128, 0.16), 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.15s;
+}
+input[type='range']::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 5px rgba(216, 189, 128, 0.22), 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 input[type='range']::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border: none;
   border-radius: 50%;
-  background: #e6c068;
+  background: linear-gradient(160deg, #ecdcad, #b89a55);
   cursor: pointer;
 }
 
+/* ガラスパネル: 半透明＋ぼかし＋ヘアラインの縁＋わずかな内側ハイライト */
 .glass {
-  background: linear-gradient(180deg, rgba(27, 27, 39, 0.92), rgba(16, 16, 24, 0.92));
-  backdrop-filter: blur(8px);
+  background: linear-gradient(180deg, rgba(18, 20, 28, 0.72), rgba(9, 10, 16, 0.78));
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+}
+
+/* ヘアライン（極薄の境界線。グラデで上が明るく下が消える） */
+.hairline-r {
+  border-right: 1px solid transparent;
+  border-image: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.01)) 1;
+}
+.hairline-l {
+  border-left: 1px solid transparent;
+  border-image: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.01)) 1;
+}
+.hairline-t {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.hairline-b {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ブランド・見出し用のディスプレイセリフ */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+/* ゴールドの箔（テキスト用） */
+.text-gold-foil {
+  background: linear-gradient(135deg, #f4e9c8 0%, #d8bd80 45%, #b89a55 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 微細な動き: フェードアップ */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

@@ -30,17 +30,17 @@ export default function PropertyPanel() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       {/* ヘッダ */}
-      <div className="border-b border-ink-700 px-3 py-3">
+      <div className="hairline-b px-4 py-3.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] uppercase tracking-wider text-ink-500">編集中</span>
+          <span className="text-[9px] uppercase tracking-luxe text-ink-500">編集中</span>
           <HelpHint text="スライダーでサイズ・厚み・素材を調整。名前はここで変更できます。迷ったら上部の『かんたん』モードを。" side="left" />
         </div>
         <input
           value={design.name}
           onChange={(e) => commit((d) => void (d.name = e.target.value))}
-          className="mt-1 w-full bg-transparent text-sm font-semibold text-white outline-none"
+          className="mt-1 w-full bg-transparent font-display text-lg font-medium text-white outline-none placeholder:text-ink-600"
         />
-        <div className="mt-0.5 text-[11px] text-gold-400">{CATEGORY_LABELS[design.category]}</div>
+        <div className="mt-0.5 text-[11px] tracking-wide text-gold-400">{CATEGORY_LABELS[design.category]}</div>
       </div>
 
       {/* パーツ選択（プロモードのみ） */}

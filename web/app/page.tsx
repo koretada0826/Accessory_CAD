@@ -33,20 +33,20 @@ export default function Page() {
 
       <div className="flex min-h-0 flex-1">
         {/* 左: アセット / カテゴリ / 画像 / テンプレ */}
-        <aside className="w-52 shrink-0 border-r border-ink-700 glass lg:w-64">
+        <aside className="hairline-r glass w-52 shrink-0 lg:w-64">
           <ErrorBoundary label="左パネル" onReset={safeReset}>
             <LeftSidebar />
           </ErrorBoundary>
         </aside>
 
-        {/* 中央: 3Dビューア + 製造チェック */}
+        {/* 中央: 3Dビューア（主役） + 製造チェック */}
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="relative min-h-0 flex-1">
             <ErrorBoundary label="3Dビュー" onReset={safeReset}>
               <Viewer />
             </ErrorBoundary>
           </div>
-          <div className="h-56 shrink-0 border-t border-ink-700 glass">
+          <div className="hairline-t glass h-52 shrink-0">
             <ErrorBoundary label="製造チェック" onReset={safeReset}>
               <ManufacturingPanel />
             </ErrorBoundary>
@@ -54,13 +54,13 @@ export default function Page() {
         </main>
 
         {/* 右: プロパティ編集 + AIチャット */}
-        <aside className="flex w-72 shrink-0 flex-col border-l border-ink-700 glass lg:w-80">
+        <aside className="hairline-l glass flex w-72 shrink-0 flex-col lg:w-80">
           <div className="min-h-0 flex-1">
             <ErrorBoundary label="編集パネル" onReset={safeReset}>
               <PropertyPanel />
             </ErrorBoundary>
           </div>
-          <div className="h-80 shrink-0 border-t border-ink-700">
+          <div className="hairline-t h-80 shrink-0">
             <ErrorBoundary label="AIチャット" onReset={safeReset}>
               <ChatPanel />
             </ErrorBoundary>

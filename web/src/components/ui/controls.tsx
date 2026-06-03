@@ -6,12 +6,12 @@ import { ReactNode } from 'react';
 /** セクション見出し付きの折り畳みなしブロック */
 export function Section({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
   return (
-    <div className="border-b border-ink-700/70 py-3">
-      <div className="mb-2 flex items-center justify-between px-3">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">{title}</h3>
+    <div className="hairline-b py-4">
+      <div className="mb-2.5 flex items-center justify-between px-4">
+        <h3 className="text-[10px] font-medium uppercase tracking-luxe text-ink-500">{title}</h3>
         {right}
       </div>
-      <div className="space-y-2.5 px-3">{children}</div>
+      <div className="space-y-3 px-4">{children}</div>
     </div>
   );
 }
@@ -46,7 +46,7 @@ export function SliderField({
             max={max}
             step={step}
             onChange={(e) => onChange(clampNum(parseFloat(e.target.value), min, max))}
-            className="w-16 rounded-md border border-ink-700 bg-ink-900 px-2 py-1 text-right text-xs tabular-nums text-white outline-none focus:border-gold-500"
+            className="w-16 rounded-lg border border-ink-700 bg-ink-950/60 px-2 py-1 text-right text-xs tabular-nums text-white outline-none transition-colors focus:border-gold-500/70 focus:bg-ink-900"
           />
           <span className="w-6 text-[10px] text-ink-500">{unit}</span>
         </div>
@@ -80,13 +80,13 @@ export function Toggle({ label, checked, onChange }: { label: string; checked: b
       <span>{label}</span>
       <span
         className={clsx(
-          'relative h-5 w-9 rounded-full transition-colors',
-          checked ? 'bg-gold-500' : 'bg-ink-700'
+          'relative h-5 w-9 rounded-full transition-colors duration-300',
+          checked ? 'bg-gold-sheen shadow-gold' : 'bg-ink-700'
         )}
       >
         <span
           className={clsx(
-            'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
+            'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-300',
             checked ? 'translate-x-4' : 'translate-x-0.5'
           )}
         />
@@ -106,14 +106,16 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1 rounded-lg bg-ink-900 p-1">
+    <div className="flex flex-wrap gap-0.5 rounded-xl border border-ink-700/60 bg-ink-950/50 p-1">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={clsx(
-            'flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-xs transition-colors',
-            value === o.value ? 'bg-ink-700 text-white shadow-sm' : 'text-ink-400 hover:text-white'
+            'flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs transition-all duration-200',
+            value === o.value
+              ? 'border border-gold-500/30 bg-ink-800 font-medium text-gold-400 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset]'
+              : 'border border-transparent text-ink-400 hover:text-white'
           )}
         >
           {o.label}

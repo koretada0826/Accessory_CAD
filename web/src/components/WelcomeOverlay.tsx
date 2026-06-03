@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useDesignStore } from '@/store/useDesignStore';
 
 const KEY = 'atelier:welcomed:v1';
@@ -34,32 +34,38 @@ export default function WelcomeOverlay() {
 
   if (!open) return null;
 
-  const Card = ({ emoji, title, desc, onClick, accent }: { emoji: string; title: string; desc: string; onClick: () => void; accent?: boolean }) => (
+  const Card = ({ icon, title, desc, onClick, accent }: { icon: ReactNode; title: string; desc: string; onClick: () => void; accent?: boolean }) => (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-2 rounded-2xl border p-5 text-center transition-all hover:-translate-y-0.5 ${
-        accent ? 'border-gold-500 bg-gradient-to-b from-gold-500/15 to-transparent' : 'border-ink-700 bg-ink-850 hover:border-ink-500'
+      className={`group flex flex-col items-center gap-2.5 rounded-2xl border p-5 text-center transition-all duration-200 hover:-translate-y-1 ${
+        accent ? 'border-gold-500/40 bg-gradient-to-b from-gold-500/10 to-transparent shadow-gold' : 'border-ink-700/70 bg-ink-850/40 hover:border-ink-500'
       }`}
     >
-      <span className="text-3xl">{emoji}</span>
-      <span className="text-sm font-semibold text-white">{title}</span>
+      <span className={accent ? 'text-gold-400' : 'text-ink-300 group-hover:text-white'}>{icon}</span>
+      <span className="text-sm font-medium text-white">{title}</span>
       <span className="text-[11px] leading-relaxed text-ink-400">{desc}</span>
     </button>
   );
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-2xl rounded-3xl border border-ink-700 bg-ink-900 p-7 shadow-2xl">
-        <div className="mb-1 flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-gold-400 to-accent-500 text-lg">💎</span>
-          <span className="text-[11px] font-bold tracking-widest text-gold-400">ATELIER へようこそ</span>
-        </div>
-        <h2 className="text-xl font-bold text-white">アクセサリー作りを、誰でも。</h2>
-        <p className="mt-1 text-sm text-ink-400">画像・文章・直感操作で3D設計。難しい知識はいりません。まずは始め方を選びましょう。</p>
+  const iconSvg = (paths: ReactNode) => (
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{paths}</svg>
+  );
 
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md">
+      <div className="glass animate-fade-up mx-4 w-full max-w-2xl rounded-3xl border border-ink-700 p-8 shadow-panel">
+        <div className="mb-3 flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gold-sheen shadow-gold">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#0a0b11" strokeWidth="1.5" strokeLinejoin="round"><path d="M6 4 H18 L21 9 L12 20 L3 9 Z" /><path d="M3 9 H21 M12 9 V20" /></svg>
+          </span>
+          <span className="text-[10px] font-medium uppercase tracking-luxe text-gold-400">Atelier へようこそ</span>
+        </div>
+        <h2 className="font-display text-3xl font-medium text-white">アクセサリー作りを、誰でも。</h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink-400">画像・文章・直感操作で3D設計。難しい知識はいりません。まずは始め方を選びましょう。</p>
+
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Card
-            emoji="✨"
+            icon={iconSvg(<path d="M12 2l1.6 5.2L19 9l-5.4 1.8L12 16l-1.6-5.2L5 9l5.4-1.8z" />)}
             title="おまかせで作る"
             desc="ワンクリックで素敵なデザインを自動生成。そこから調整するのが一番かんたん。"
             accent
@@ -68,13 +74,13 @@ export default function WelcomeOverlay() {
               close();
             }}
           />
-          <Card emoji="🖼️" title="画像から作る" desc="好きなアクセの画像を左の「画像」タブにドロップ。AIが形を読み取ります。" onClick={() => close()} />
-          <Card emoji="🎛️" title="自分で作る" desc="左の「カテゴリ」から選んで、右のスライダーで自由に。迷ったら『かんたん』モードで。" onClick={() => close()} />
+          <Card icon={iconSvg(<><rect x="3" y="4" width="18" height="16" rx="2.5" /><circle cx="8.5" cy="9.5" r="1.6" /><path d="M21 16l-5-5L6 20" /></>)} title="画像から作る" desc="好きなアクセの画像を左の「画像」タブにドロップ。AIが形を読み取ります。" onClick={() => close()} />
+          <Card icon={iconSvg(<><circle cx="7" cy="8" r="2.4" /><path d="M11 8h8M5 16h8M17 16a2.4 2.4 0 1 0 4.8 0 2.4 2.4 0 0 0-4.8 0" /></>)} title="自分で作る" desc="左の「カテゴリ」から選んで、右のスライダーで自由に。迷ったら『かんたん』モードで。" onClick={() => close()} />
         </div>
 
-        <div className="mt-5 flex items-center justify-between">
+        <div className="mt-6 flex items-center justify-between">
           <span className="text-[11px] text-ink-500">右下のAIチャットに「もっと細く」「石を入れて」と話しかけてもOK</span>
-          <button onClick={() => close()} className="rounded-lg px-4 py-2 text-xs text-ink-300 hover:text-white">
+          <button onClick={() => close()} className="rounded-xl bg-gold-sheen px-5 py-2 text-xs font-medium text-ink-950 shadow-gold transition-transform hover:-translate-y-px">
             はじめる →
           </button>
         </div>
