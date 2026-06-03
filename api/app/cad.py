@@ -49,7 +49,7 @@ def build_step(design: AccessoryDesign) -> bytes:
     ]
 
     if kind == "ring":
-        solid = _ring(p, stones)
+        solid = _ring(p, stones, engraving)
     elif kind == "pendant":
         solid = _pendant(p, stones, engraving)
     else:
@@ -80,8 +80,9 @@ def _bezel(d, height):  # type: ignore
     return cq.Workplane("XY").circle(ro).circle(ri).extrude(height)
 
 
-def _add_engraving(body, engraving, t):  # type: ignore
-    """前面(+Z)に文字を凹(deboss)/凸(emboss)で反映。フォント不可（日本語等）なら無視。"""
+def _add_engraving(body, engraving, z_offset, cx=0.0, cy=0.0):  # type: ignore
+    """+Z面に文字を凹(deboss)/凸(emboss)で反映。フォント不可（日本語等）なら無視。
+    z_offset=面のZ位置 / (cx,cy)=面中心のXYオフセット（ペンダント=0,0 / リング印台=印台中心）。"""
     for e in engraving:
         txt = (e.get("text") or "").strip()
         if not txt:
@@ -90,12 +91,14 @@ def _add_engraving(body, engraving, t):  # type: ignore
             size = e.get("size", 4)
             cut = e.get("depth", -0.4) < 0
             depth = abs(e.get("depth", 0.4)) + 0.2
-            wp = cq.Workplane("XY").workplane(offset=t / 2).center(e["x"], e["y"])
+            wp = cq.Workplane("XY").workplane(offset=z_offset).center(cx + e["x"], cy + e["y"])
             if cut:
-                txt_solid = wp.text(txt, size, -depth, cut=False, combine=False)
+                # 面から内側(-Z)へ伸ばした文字ソリッドを差し引いて凹彫り
+                txt_solid = wp.text(txt, size, -depth, combine=False)
                 body = body.cut(txt_solid)
             else:
-                txt_solid = wp.text(txt, size, depth, cut=False, combine=False)
+                # 面から外側(+Z)へ伸ばした文字ソリッドを足して凸浮き
+                txt_solid = wp.text(txt, size, depth, combine=False)
                 body = body.union(txt_solid)
         except Exception:
             # フォント未対応（日本語など）→ 刻印はスキップ（STEP本体は維持）
@@ -103,7 +106,7 @@ def _add_engraving(body, engraving, t):  # type: ignore
     return body
 
 
-def _ring(p, stones=None) -> "cq.Workplane":  # type: ignore
+def _ring(p, stones=None, engraving=None) -> "cq.Workplane":  # type: ignore
     inner_r = p.get("innerDiameter", 17.0) / 2
     t = p.get("bandThickness", 1.6)
     width = p.get("bandWidth", 3.0)
@@ -118,12 +121,17 @@ def _ring(p, stones=None) -> "cq.Workplane":  # type: ignore
     )
     top = p.get("top", {})
     if top.get("type") == "signet":
+        plate_h = top.get("height", 2.5)
+        plate_cy = outer_r + plate_h / 2 - 0.4
         plate = (
             cq.Workplane("XY")
-            .box(top.get("width", 10), top.get("length", 12), top.get("height", 2.5))
-            .translate((0, outer_r + top.get("height", 2.5) / 2 - 0.4, 0))
+            .box(top.get("width", 10), top.get("length", 12), plate_h)
+            .translate((0, plate_cy, 0))
         )
         band = band.union(plate)
+        # 印台の上面(+Z, z=plate_h/2)に刻印。中心は印台中心(0, plate_cy)
+        if engraving:
+            band = _add_engraving(band, engraving, plate_h / 2, 0.0, plate_cy)
 
     # 石のベゼル石座（リング上部 +Y）
     for s in (stones or []):
@@ -218,6 +226,6 @@ def _pendant(p, stones=None, engraving=None) -> "cq.Workplane":  # type: ignore
 
     # 刻印（前面）
     if engraving:
-        body = _add_engraving(body, engraving, t)
+        body = _add_engraving(body, engraving, t / 2)
 
     return body

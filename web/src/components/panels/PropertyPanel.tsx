@@ -19,6 +19,14 @@ export default function PropertyPanel() {
   const pro = uiMode === 'pro';
   const p = design.params;
 
+  // 刻印を載せられる面（ペンダント前面 / リングの印台・ドーム上面）。null=非対応カテゴリ
+  const engraveFace =
+    p.kind === 'pendant'
+      ? { w: p.width, h: p.height, where: '前面' }
+      : p.kind === 'ring' && (p.top.type === 'signet' || p.top.type === 'dome')
+        ? { w: p.top.width, h: p.top.length, where: p.top.type === 'dome' ? 'ドーム上面' : '印台上面' }
+        : null;
+
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       {/* ヘッダ */}
@@ -300,10 +308,10 @@ export default function PropertyPanel() {
         ))}
       </Section>
 
-      {/* ===== 刻印（ペンダント） ===== */}
-      {p.kind === 'pendant' && (
+      {/* ===== 刻印（ペンダント前面 / リング印台・ドーム上面） ===== */}
+      {engraveFace && (
         <Section
-          title="刻印 (エングレービング)"
+          title={`刻印 (${engraveFace.where})`}
           right={
             <button
               onClick={() =>
@@ -351,9 +359,9 @@ export default function PropertyPanel() {
                 </select>
               </div>
               <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                <SliderField label="左右位置" value={e.position.x} min={-p.width / 2} max={p.width / 2} step={0.5} unit="mm"
+                <SliderField label="左右位置" value={e.position.x} min={-engraveFace.w / 2} max={engraveFace.w / 2} step={0.5} unit="mm"
                   onChange={(v) => commit((d) => { d.engraving[i].position.x = v; })} />
-                <SliderField label="上下位置" value={e.position.y} min={-p.height / 2} max={p.height / 2} step={0.5} unit="mm"
+                <SliderField label="上下位置" value={e.position.y} min={-engraveFace.h / 2} max={engraveFace.h / 2} step={0.5} unit="mm"
                   onChange={(v) => commit((d) => { d.engraving[i].position.y = v; })} />
               </div>
             </div>
