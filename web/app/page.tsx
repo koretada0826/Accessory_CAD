@@ -33,7 +33,7 @@ export default function Page() {
 
       <div className="flex min-h-0 flex-1">
         {/* 左: アセット / カテゴリ / 画像 / テンプレ */}
-        <aside className="w-64 shrink-0 border-r border-ink-700 glass">
+        <aside className="w-52 shrink-0 border-r border-ink-700 glass lg:w-64">
           <ErrorBoundary label="左パネル" onReset={safeReset}>
             <LeftSidebar />
           </ErrorBoundary>
@@ -54,7 +54,7 @@ export default function Page() {
         </main>
 
         {/* 右: プロパティ編集 + AIチャット */}
-        <aside className="flex w-80 shrink-0 flex-col border-l border-ink-700 glass">
+        <aside className="flex w-72 shrink-0 flex-col border-l border-ink-700 glass lg:w-80">
           <div className="min-h-0 flex-1">
             <ErrorBoundary label="編集パネル" onReset={safeReset}>
               <PropertyPanel />
