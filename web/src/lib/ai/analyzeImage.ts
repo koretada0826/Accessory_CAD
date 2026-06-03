@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import type { AccessoryDesign, Category } from '@/types/accessory';
 import { createDesign } from '@/lib/data/factory';
+import { signatureNecklace } from '@/lib/data/templates';
 import { extractContour } from './imageContour';
 
 /**
@@ -89,6 +90,37 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
           },
         };
       }
+      // ネックレス（チェーン）かつ中央に大きな抜き＝オープン形状 → 画像をそのまま
+      // メッシュ化せず、パラメトリックな高級ネックレス構造として再構成する（新方式）。
+      const cutout = contour.holes.find((h) => !h.isTop && h.diameterMm > Math.min(contour.widthMm, contour.heightMm) * 0.22);
+      if (contour.hasChain && cutout && contour.heightMm >= contour.widthMm * 0.92) {
+        const design = signatureNecklace();
+        design.meta.origin = 'image';
+        design.meta.sourceImage = dataUrl;
+        if (design.params.kind === 'pendant') {
+          design.params.width = Math.max(10, Math.round(contour.widthMm));
+          design.params.height = Math.max(12, Math.round(contour.heightMm));
+        }
+        // 検出した暖色金属ならゴールド、明るければシルバー
+        design.materialId = avgBrightness > 0.62 ? 'silver' : 'gold_yellow';
+        features.push('ネックレス構造として再構成 → オープンティアドロップ＋センターダイヤ＋パヴェ＋ケーブルチェーン');
+        features.push(`外形 ${contour.widthMm}×${contour.heightMm}mm に合わせてパラメトリック生成`);
+        return {
+          design,
+          confidence: 0.66,
+          detected: {
+            aspectRatio: round2(aspectRatio),
+            avgBrightness: round2(avgBrightness),
+            estimatedCategory: 'necklace',
+            symmetric: true,
+            features,
+            overlayPath: contour.overlayPath,
+            imgW: contour.imgW,
+            imgH: contour.imgH,
+          },
+        };
+      }
+
       // チェーンが検出されたらネックレス（ペンダント＋チェーンのプレビュー）として生成
       const isNecklace = contour.hasChain;
       const design = createDesign(isNecklace ? 'necklace' : 'pendant', isNecklace ? '画像トレース ネックレス' : '画像トレース ペンダント');
@@ -198,8 +230,28 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
         },
       };
     }
-    // トレース失敗 → ヒューリスティックの円形へフォールバック
-    features.push('輪郭抽出に失敗 → 円形で近似（背景がはっきりした画像だと精度向上）');
+    // トレース失敗 → 楕円板にはせず、縦長ならパラメトリックなオープンティアドロップ・
+    // ネックレスへフォールバック（円/楕円プレートを勝手に作らない）。
+    if (aspectRatio < 1.1) {
+      const design = signatureNecklace();
+      design.meta.origin = 'image';
+      design.meta.sourceImage = dataUrl;
+      design.materialId = avgBrightness > 0.62 ? 'silver' : 'gold_yellow';
+      features.push('被写体の切り出しが不確実なため、近いネックレス構造（オープンティアドロップ）で再構成しました');
+      features.push('右パネルで幅/高さ/フレーム幅/パヴェ/石を調整できます');
+      return {
+        design,
+        confidence: 0.4,
+        detected: {
+          aspectRatio: round2(aspectRatio),
+          avgBrightness: round2(avgBrightness),
+          estimatedCategory: 'necklace',
+          symmetric: true,
+          features,
+        },
+      };
+    }
+    features.push('輪郭抽出に失敗 → カテゴリ別の近似で生成（背景がはっきりした画像だと精度向上）');
   }
 
   // --- フォールバック / リング・ブレスレット ---

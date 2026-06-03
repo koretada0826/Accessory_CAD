@@ -357,7 +357,7 @@ export default function Viewer() {
         <color attach="background" args={['#070709']} />
         {/* スタジオ3灯（キー/フィル/リム）で立体と接地を作る。主たる映り込みはHDRI側 */}
         <ambientLight intensity={0.18} />
-        <directionalLight position={[14, 22, 16]} intensity={0.9} color="#fff3df" castShadow />
+        <directionalLight position={[14, 22, 16]} intensity={0.9} color="#fff3df" castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
         <directionalLight position={[-16, 8, -6]} intensity={0.4} color="#aec0e8" />
         <directionalLight position={[0, 6, -18]} intensity={0.7} color="#fff" />
 
