@@ -5,7 +5,7 @@ import type {
   EarringsParams,
   GenericParams,
 } from '@/types/accessory';
-import { BuiltModel, BuiltPart, makeGem } from './primitives';
+import { BuiltModel, BuiltPart, makeGem, makeBezel, makeProngs } from './primitives';
 
 /** 角丸プレート（前面=+Z）。ピアス本体に使用 */
 function plateGeometry(w: number, h: number, t: number): THREE.BufferGeometry {
@@ -46,6 +46,20 @@ function pushStones(design: AccessoryDesign, t: number, parts: BuiltPart[]) {
     gem.rotateX(Math.PI / 2);
     gem.translate(st.position.x, st.position.y, t / 2 + st.diameter * 0.15);
     parts.push({ id: `stone-${i}`, geometry: gem, role: 'stone', color: st.color });
+
+    // 石座（覆輪 / 先玉付き爪）
+    const seatZ = t / 2;
+    if (st.setting === 'prong') {
+      const prongs = makeProngs(st.diameter, st.diameter >= 5 ? 6 : 4);
+      prongs.rotateX(Math.PI / 2);
+      prongs.translate(st.position.x, st.position.y, seatZ);
+      parts.push({ id: `prongs-${i}`, geometry: prongs, role: 'metal', componentType: 'prongs' });
+    } else if (st.setting !== 'none' && st.setting !== 'flush') {
+      const bezel = makeBezel(st.diameter);
+      bezel.rotateX(Math.PI / 2);
+      bezel.translate(st.position.x, st.position.y, seatZ);
+      parts.push({ id: `bezel-${i}`, geometry: bezel, role: 'metal', componentType: 'border' });
+    }
   });
 }
 

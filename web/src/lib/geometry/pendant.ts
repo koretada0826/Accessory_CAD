@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { AccessoryDesign, PendantParams } from '@/types/accessory';
-import { BuiltModel, BuiltPart, buildShape, circleHole, makeGem } from './primitives';
+import { BuiltModel, BuiltPart, buildShape, circleHole, makeGem, makeBezel, makeProngs } from './primitives';
 
 /**
  * ペンダントのパラメトリック生成。
@@ -77,9 +77,17 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
     gem.translate(st.position.x, st.position.y, p.thickness / 2 + st.diameter * 0.15);
     parts.push({ id: `stone-${i}`, geometry: gem, role: 'stone', color: st.color });
 
-    if (st.setting === 'bezel') {
-      const bezel = new THREE.TorusGeometry(st.diameter / 2 + 0.3, 0.4, 12, 24);
-      bezel.translate(st.position.x, st.position.y, p.thickness / 2);
+    const seatZ = p.thickness / 2;
+    if (st.setting === 'prong') {
+      const prongs = makeProngs(st.diameter, st.diameter >= 5 ? 6 : 4);
+      prongs.rotateX(Math.PI / 2); // 石と同じく前面(+Z)向きへ
+      prongs.translate(st.position.x, st.position.y, seatZ);
+      parts.push({ id: `prongs-${i}`, geometry: prongs, role: 'metal', componentType: 'prongs' });
+    } else if (st.setting !== 'none' && st.setting !== 'flush') {
+      // bezel / pave などは覆輪で受ける
+      const bezel = makeBezel(st.diameter);
+      bezel.rotateX(Math.PI / 2);
+      bezel.translate(st.position.x, st.position.y, seatZ);
       parts.push({ id: `bezel-${i}`, geometry: bezel, role: 'metal', componentType: 'border' });
     }
   }

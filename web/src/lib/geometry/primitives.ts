@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { PendantShape } from '@/types/accessory';
 
 /**
@@ -202,6 +203,53 @@ export function makeGem(d: number, cut: string = 'round'): THREE.BufferGeometry 
   else if (cut === 'emerald') geo.scale(1.4, 1, 0.95);
   geo.computeVertexNormals(); // 非インデックス→フラット法線（ファセットが立つ）
   return geo;
+}
+
+/**
+ * 覆輪（ベゼル）の石座。石のガードルを抱える、わずかにテーパーした金属の壁。
+ * 正準向き: 石の軸＝+Y / ガードル面 y=0 / テーブル上。呼び出し側で回転・移動する。
+ */
+export function makeBezel(d: number): THREE.BufferGeometry {
+  const r = d / 2;
+  const h = d * 0.5;
+  // 断面（x=半径, y=高さ）を閉ループにして回転＝肉厚のある覆輪バンド
+  const prof = [
+    new THREE.Vector2(r + 0.18, h * 0.62), // 内・上（石を抱える縁）
+    new THREE.Vector2(r + 0.52, h * 0.45), // 外・上
+    new THREE.Vector2(r + 0.52, -h * 0.28), // 外・下
+    new THREE.Vector2(r + 0.22, -h * 0.28), // 内・下
+    new THREE.Vector2(r + 0.18, h * 0.62), // 閉じる
+  ];
+  const g = new THREE.LatheGeometry(prof, 56);
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * 爪（プロング）留めの石座。先玉付きで、石を抱えるように内側へ倒れた絞り爪をcount本。
+ * 正準向き: 石の軸＝+Y。呼び出し側で回転・移動する。
+ */
+export function makeProngs(d: number, count = 4): THREE.BufferGeometry {
+  const r = d / 2 + 0.08;
+  const H = d * 0.95;
+  const tilt = 0.22; // 上端が内側へ倒れる角
+  const geos: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + Math.PI / count;
+    // 爪本体（下太・上細のテーパー） + 先玉
+    const claw = new THREE.CylinderGeometry(0.17, 0.34, H, 10);
+    claw.translate(0, H / 2 - d * 0.12, 0);
+    const bead = new THREE.SphereGeometry(0.26, 10, 10);
+    bead.translate(0, H - d * 0.12, 0);
+    let one = mergeGeometries([claw, bead], false)!;
+    one.rotateZ(tilt); // 上端を -X へ倒す
+    one.rotateY(-a); // -X を内向き(中心方向)に合わせて円周配置の向きへ
+    one.translate(Math.cos(a) * r, 0, Math.sin(a) * r);
+    geos.push(one);
+  }
+  const merged = mergeGeometries(geos, false)!;
+  merged.computeVertexNormals();
+  return merged;
 }
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,9 @@ import {
   BuiltPart,
   ellipseProfile,
   knifeProfile,
+  makeBezel,
   makeGem,
+  makeProngs,
   rectProfile,
   sweepProfile,
 } from './primitives';
@@ -81,19 +83,15 @@ export function buildRing(design: AccessoryDesign, p: RingParams): BuiltModel {
     const seatY = topBaseY + 0.2;
 
     const setting = main?.setting ?? 'prong';
-    // ベゼル/プロングの簡易表現
+    // 覆輪 / 先玉付き絞り爪（精密化した石座）
     if (setting === 'bezel') {
-      const bezel = new THREE.CylinderGeometry(d / 2 + 0.6, d / 2 + 0.6, d * 0.45, 24);
-      bezel.translate(0, seatY + d * 0.2, 0);
+      const bezel = makeBezel(d);
+      bezel.translate(0, seatY + d * 0.12, 0);
       parts.push({ id: 'bezel', geometry: bezel, role: 'metal', componentType: 'bezel' });
     } else {
-      const prongs = 4;
-      for (let i = 0; i < prongs; i++) {
-        const a = (i / prongs) * Math.PI * 2 + Math.PI / 4;
-        const prong = new THREE.CylinderGeometry(0.35, 0.45, d * 0.7, 8);
-        prong.translate((d / 2) * Math.cos(a), seatY + d * 0.25, (d / 2) * Math.sin(a));
-        parts.push({ id: `prong-${i}`, geometry: prong, role: 'metal', componentType: 'prongs' });
-      }
+      const prongs = makeProngs(d, d >= 5 ? 6 : 4);
+      prongs.translate(0, seatY + d * 0.12, 0);
+      parts.push({ id: 'prongs', geometry: prongs, role: 'metal', componentType: 'prongs' });
     }
 
     // --- ギャラリー（石座下の精密化）: アンダーベゼル・レール + ガラリー・ワイヤー ---
