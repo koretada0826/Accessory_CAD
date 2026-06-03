@@ -35,19 +35,55 @@ export interface AnalyzeResult {
 export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
   const { aspectRatio, avgBrightness } = await extractImageFeatures(dataUrl);
 
-  // カテゴリ推定（簡易ヒューリスティック）
-  let category: Category;
-  if (aspectRatio > 1.8) category = 'bracelet';
-  else if (Math.abs(aspectRatio - 1) < 0.16 && avgBrightness < 0.7) category = 'ring';
-  else category = 'pendant';
+  // カテゴリ推定: 横長→ブレスレット、それ以外はトレースして「中央に大きな穴=環状」なら
+  // リング、そうでなければペンダントと判定する（リング/ペンダントは輪郭トレースで決める）。
+  const category: Category = aspectRatio > 1.8 ? 'bracelet' : 'pendant';
 
   const features: string[] = [];
   features.push(`アスペクト比 ${aspectRatio.toFixed(2)}`);
 
-  // --- ペンダント系: 実輪郭トレース ---
+  // --- ペンダント系 + リング: 実輪郭トレース ---
   if (category === 'pendant') {
     const contour = await extractContour(dataUrl, { targetLongestMm: 26, symmetrize: true });
     if (contour) {
+      // 中央に大きな穴 → 環状（リング）と判定し Ring に変換
+      const minSide = Math.min(contour.widthMm, contour.heightMm);
+      const central = contour.holes.find(
+        (h) =>
+          Math.abs(h.xMm) < contour.widthMm * 0.2 &&
+          Math.abs(h.yMm) < contour.heightMm * 0.2 &&
+          h.diameterMm > minSide * 0.42
+      );
+      if (central) {
+        const ring = createDesign('ring', '画像トレース リング');
+        ring.meta.origin = 'image';
+        ring.meta.sourceImage = dataUrl;
+        ring.materialId = avgBrightness > 0.6 ? 'silver' : avgBrightness > 0.4 ? 'gold_white' : 'gold_yellow';
+        const outerD = (contour.widthMm + contour.heightMm) / 2;
+        if (ring.params.kind === 'ring') {
+          ring.params.innerDiameter = Math.round(central.diameterMm * 100) / 100;
+          ring.params.bandThickness = Math.max(1, Math.round(((outerD - central.diameterMm) / 2) * 10) / 10);
+          ring.params.bandWidth = 3;
+          ring.params.profile = 'flat';
+        }
+        features.push(`環状を検出 → リングと判定`);
+        features.push(`内径 ${ring.params.kind === 'ring' ? ring.params.innerDiameter : ''}mm / 外径 ${Math.round(outerD)}mm を推定`);
+        features.push('※ バンド幅(厚み方向)は俯瞰画像から不明のため初期値');
+        return {
+          design: ring,
+          confidence: 0.6,
+          detected: {
+            aspectRatio: round2(aspectRatio),
+            avgBrightness: round2(avgBrightness),
+            estimatedCategory: 'ring',
+            symmetric: true,
+            features,
+            overlayPath: contour.overlayPath,
+            imgW: contour.imgW,
+            imgH: contour.imgH,
+          },
+        };
+      }
       const design = createDesign('pendant', '画像トレース ペンダント');
       design.meta.origin = 'image';
       design.meta.sourceImage = dataUrl;
