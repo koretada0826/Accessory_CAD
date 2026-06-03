@@ -121,14 +121,13 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
     for (const part of stones) parts.push(part);
   }
 
-  // ネックレス: 本物のケーブルチェーン（噛み合う楕円リンク）＋留め具/アジャスター/エンドタグ
+  // ネックレス全体（縦長オーバルのケーブルチェーン＋留め具/アジャスター/エンドタグ）。
+  // ペンダントが最下部に吊り下がる“ネックレス全体”の構図。
   let chainRise = 0;
   if (design.category === 'necklace') {
-    // 構図はペンダントを主役に。チェーンは長すぎないV字（製品写真の寄り構図）。
-    const reach = Math.max(p.width, 16) * 0.6;
-    const rise = Math.max(p.height, 20) * 1.25;
-    chainRise = rise + (bailConnectY - topY) + 2;
-    for (const part of buildCableChain(bailConnectX, bailConnectY, reach, rise)) parts.push(part);
+    const { parts: chain, topY: chainTopY } = buildNecklaceLayout(bailConnectX, bailConnectY, p.width, p.height);
+    for (const part of chain) parts.push(part);
+    chainRise = chainTopY - bailConnectY + p.height / 2 + 2;
   }
 
   return {
@@ -198,67 +197,71 @@ function makeOvalLink(linkLen: number, linkWidth: number, wire: number): THREE.B
 }
 
 /**
- * fine cable chain ジェネレーター。
- * ペンダント接続点から左右2本のストランドがV字に立ち上がる。各リンクは楕円で、
- * 交互に90°回転して噛み合う（粒の連続ではなく本物のチェーン）。
- * 上部に引き輪(clasp)・アジャスター・エンドタグを付ける。
+ * full_necklace_layout ジェネレーター。
+ * ペンダント接続点(cx,cy)を最下部とする縦長オーバルのパス全周に、噛み合う楕円リンクを
+ * 連続配置＝“ネックレス全体”。最上部に引き輪(clasp)・アジャスター・エンドタグ。
+ * 戻り値: {parts, topY=オーバル最上部}。
  */
-function buildCableChain(cx: number, cy: number, reach: number, rise: number): BuiltPart[] {
+function buildNecklaceLayout(
+  cx: number,
+  cy: number,
+  pendantW: number,
+  pendantH: number
+): { parts: BuiltPart[]; topY: number } {
   const parts: BuiltPart[] = [];
-  const wire = 0.2;
-  const linkLen = 2.0, linkWidth = 1.35; // mm（視認できる細めのケーブルチェーン）
-  const step = linkLen * 0.56; // 噛み合うよう重ねる
+  const wire = 0.18;
+  const linkLen = 1.9, linkWidth = 1.3;
+  const step = linkLen * 0.55; // 噛み合うよう重ねる
 
   const placeLink = (x: number, y: number, ang: number, parity: number, id: string) => {
     const link = makeOvalLink(linkLen, linkWidth, wire);
     const t = new THREE.Vector3(Math.cos(ang), Math.sin(ang), 0); // tangent
-    const n = new THREE.Vector3(-Math.sin(ang), Math.cos(ang), 0); // 面内法線
+    const n = new THREE.Vector3(-Math.sin(ang), Math.cos(ang), 0);
     const up = new THREE.Vector3(0, 0, 1);
-    // 偶奇でリンク面を90°切替＝噛み合い
-    const yAxis = parity === 0 ? up : n;
+    const yAxis = parity === 0 ? up : n; // 偶奇でリンク面を90°切替＝噛み合い
     const zAxis = new THREE.Vector3().crossVectors(t, yAxis).normalize();
-    const m = new THREE.Matrix4().makeBasis(t, yAxis, zAxis);
-    link.applyMatrix4(m);
+    link.applyMatrix4(new THREE.Matrix4().makeBasis(t, yAxis, zAxis));
     link.translate(x, y, 0);
     parts.push({ id, geometry: link, role: 'metal', componentType: 'bail' });
   };
 
-  let topL: { x: number; y: number } | null = null;
-  let topR: { x: number; y: number } | null = null;
-  for (const side of [-1, 1]) {
-    const M = Math.max(8, Math.ceil(rise / step));
-    let prevAng = Math.PI / 2;
-    let last = { x: cx, y: cy };
-    for (let i = 0; i <= M; i++) {
-      const t = i / M;
-      const x = cx + side * Math.sin((t * Math.PI) / 2) * reach;
-      const y = cy + t * rise;
-      const ang = i === 0 ? prevAng : Math.atan2(y - last.y, x - last.x);
-      placeLink(x, y, ang, i % 2, `chain-${side}-${i}`);
-      prevAng = ang;
-      last = { x, y };
-    }
-    if (side < 0) topL = last; else topR = last;
+  // 縦長オーバル: 横半径a・縦半径b。最下点(θ=0)を (cx,cy)＝ペンダント接続点に。
+  const a = Math.max(pendantW * 1.5, 17);
+  const b = Math.max(pendantH * 1.55, 26);
+  const ovalCy = cy + b;
+  const per = Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
+  const N = Math.max(120, Math.round(per / step));
+  const gap = 2; // 最下部に小ギャップ（ペンダント接続部）
+  for (let i = 0; i < N; i++) {
+    if (i < gap || i > N - gap) continue;
+    const th = (i / N) * Math.PI * 2; // 0=最下点, π=最上点
+    const x = cx + a * Math.sin(th);
+    const y = ovalCy - b * Math.cos(th);
+    const ang = Math.atan2(b * Math.sin(th), a * Math.cos(th)); // 楕円の接線
+    placeLink(x, y, ang, i % 2, `chain-${i}`);
   }
 
-  // 引き輪（spring ring clasp）= 開いた太めのリングを上部中央左に
-  if (topL && topR) {
-    const claspR = 1.4;
-    const ring = new THREE.TorusGeometry(claspR, 0.32, 12, 32, Math.PI * 1.7);
-    ring.rotateY(Math.PI / 2);
-    ring.translate(topL.x, topL.y + claspR, 0);
-    parts.push({ id: 'clasp', geometry: ring, role: 'metal', componentType: 'bail' });
+  // ペンダント接続のジャンプリング
+  const jr = new THREE.TorusGeometry(1.0, 0.22, 10, 24);
+  jr.rotateX(Math.PI / 2);
+  jr.translate(cx, cy + 0.6, 0);
+  parts.push({ id: 'chain-connector', geometry: jr, role: 'metal', componentType: 'bail' });
 
-    // アジャスター（右側に数コマ）＋エンドタグ（しずく型の小片）
-    for (let i = 0; i < 6; i++) {
-      placeLink(topR.x, topR.y + 0.2 + i * step, Math.PI / 2, i % 2, `extender-${i}`);
-    }
-    const tag = new THREE.SphereGeometry(0.7, 16, 12);
-    tag.scale(0.7, 1.1, 0.5);
-    tag.translate(topR.x, topR.y + 0.2 + 6 * step + 0.6, 0);
-    parts.push({ id: 'end-tag', geometry: tag, role: 'metal', componentType: 'bail' });
-  }
-  return parts;
+  // 上部中央: 引き輪(spring ring clasp)
+  const topY = ovalCy + b;
+  const ring = new THREE.TorusGeometry(1.3, 0.3, 12, 32, Math.PI * 1.7);
+  ring.rotateY(Math.PI / 2);
+  ring.translate(cx - 1.0, topY - 0.4, 0);
+  parts.push({ id: 'clasp', geometry: ring, role: 'metal', componentType: 'bail' });
+
+  // アジャスター数コマ＋エンドタグ（上部やや右）
+  for (let i = 0; i < 6; i++) placeLink(cx + 1.4, topY - 0.4 + i * step, Math.PI / 2, i % 2, `extender-${i}`);
+  const tag = new THREE.SphereGeometry(0.6, 16, 12);
+  tag.scale(0.7, 1.1, 0.5);
+  tag.translate(cx + 1.4, topY - 0.4 + 6 * step + 0.5, 0);
+  parts.push({ id: 'end-tag', geometry: tag, role: 'metal', componentType: 'bail' });
+
+  return { parts, topY };
 }
 
 /**
