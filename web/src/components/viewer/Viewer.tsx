@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, Lightformer, ContactShadows, Grid, Html, GizmoHelper, GizmoViewcube } from '@react-three/drei';
+import { OrbitControls, Environment, Lightformer, ContactShadows, Grid, Html, GizmoHelper, GizmoViewcube, MeshReflectorMaterial } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { useDesignStore } from '@/store/useDesignStore';
 import { buildModel } from '@/lib/geometry';
@@ -40,7 +41,7 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
       else if (pat.type === 'brushed') patternRoughness = 0.5 + pat.intensity * 0.25;
       else if (pat.type === 'gothic') patternRoughness = 0.45;
     } else if (mat.metalness > 0.5) {
-      patternRoughness = mat.roughness * 0.6; // 模様なしの金属は鏡面寄りに研磨
+      patternRoughness = Math.max(0.04, mat.roughness * 0.32); // 模様なしの金属は鏡面研磨へ
     }
     return { model, mat, patternRoughness };
   }, [design]);
@@ -98,10 +99,10 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
               metalness={mat.metalness}
               roughness={patternRoughness}
               // 鏡面研磨の質感: クリアコートで表面に薄い艶、強い環境反射で金属の映り込みを出す
-              clearcoat={mat.metalness > 0.5 ? 0.6 : 0}
-              clearcoatRoughness={0.08}
-              reflectivity={0.6}
-              envMapIntensity={mat.metalness > 0.5 ? 2.4 : 1.2}
+              clearcoat={mat.metalness > 0.5 ? 0.7 : 0}
+              clearcoatRoughness={0.05}
+              reflectivity={0.7}
+              envMapIntensity={mat.metalness > 0.5 ? 3.2 : 1.3}
               emissive={highlighted ? new THREE.Color('#e6c068') : new THREE.Color('#000000')}
               emissiveIntensity={highlighted ? 0.25 : 0}
               wireframe={wireframe}
@@ -237,7 +238,7 @@ function DimensionLabel() {
 
 export default function Viewer() {
   const [wireframe, setWireframe] = useState(false);
-  const [grid, setGrid] = useState(true);
+  const [grid, setGrid] = useState(false);
   const [dims, setDims] = useState(true);
   const [preset, setPreset] = useState<ViewPreset>('persp');
   const [nonce, setNonce] = useState(0);
@@ -291,32 +292,36 @@ export default function Viewer() {
         shadows
         dpr={[1, 2]}
         camera={{ fov: 35, position: [30, 22, 36] }}
-        gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+        gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15 }}
         resize={{ debounce: 0, scroll: false }}
         onCreated={(state) => state.gl.render(state.scene, state.camera)}
         onPointerMissed={() => useDesignStore.getState().selectComponent(null)}
       >
-        <color attach="background" args={['#0c0c12']} />
-        {/* 直接光（envが無くてもモデルが必ず見えるよう十分に確保） */}
-        <ambientLight intensity={0.6} />
-        <hemisphereLight args={['#ffffff', '#202028', 0.6]} />
-        <directionalLight position={[20, 30, 20]} intensity={1.6} castShadow />
-        <directionalLight position={[-18, 10, -12]} intensity={0.7} color="#9db4ff" />
-        <directionalLight position={[0, -10, -20]} intensity={0.5} color="#ffe9c0" />
+        <color attach="background" args={['#08080c']} />
+        {/* 直接光（envが無くてもモデルが必ず見えるよう確保。主光源は環境マップ側） */}
+        <ambientLight intensity={0.25} />
+        <hemisphereLight args={['#ffffff', '#0a0a10', 0.35]} />
+        <directionalLight position={[20, 30, 20]} intensity={1.1} castShadow />
+        <directionalLight position={[-18, 10, -12]} intensity={0.45} color="#aebcff" />
 
-        {/* 手続き的な環境光（CDN不要・オフライン可）で金属を綺麗に映す。
+        {/* スタジオ撮影風の手続き環境マップ（CDN不要）。
+            明るいソフトボックス×暗い背景の高コントラストが、本物の金の輝き(映り込み)を作る。
             万一サスペンドしてもモデル/グリッドを巻き込まないよう独立Suspenseで隔離 */}
         <Suspense fallback={null}>
-          <Environment resolution={512}>
-            <group>
-              {/* 大きな面光源＝金属に映る柔らかな明部 */}
-              <Lightformer form="rect" intensity={4} position={[0, 9, 7]} scale={[12, 7, 1]} color="#ffffff" />
-              <Lightformer form="rect" intensity={2.4} position={[-9, 4, -6]} scale={[9, 9, 1]} color="#ffeccf" />
-              <Lightformer form="rect" intensity={1.8} position={[9, 2, -6]} scale={[9, 9, 1]} color="#cfe0ff" />
-              {/* 細い帯＝研磨面に走る鋭いハイライトの筋（高級感の核） */}
-              <Lightformer form="rect" intensity={7} position={[-4, 7, 5]} rotation={[0, 0, Math.PI / 5]} scale={[0.6, 9, 1]} color="#ffffff" />
-              <Lightformer form="rect" intensity={5} position={[5, 5, 4]} rotation={[0, 0, -Math.PI / 6]} scale={[0.5, 8, 1]} color="#ffffff" />
-              <Lightformer form="ring" intensity={2.5} position={[0, -6, 8]} scale={[6, 6, 1]} color="#ffffff" />
+          <Environment resolution={1024}>
+            <group rotation={[0, 0, 0]}>
+              {/* 主光源: 上前方の大きなソフトボックス（やや暖色＝ゴールドが映える） */}
+              <Lightformer form="rect" intensity={6} position={[0, 10, 8]} rotation={[-Math.PI / 6, 0, 0]} scale={[14, 9, 1]} color="#fff4e2" />
+              {/* 左右フィル（色味で立体感）*/}
+              <Lightformer form="rect" intensity={2.2} position={[-11, 4, -3]} rotation={[0, Math.PI / 2.4, 0]} scale={[10, 10, 1]} color="#ffe2b8" />
+              <Lightformer form="rect" intensity={2.0} position={[11, 3, -3]} rotation={[0, -Math.PI / 2.4, 0]} scale={[10, 10, 1]} color="#c6d8ff" />
+              {/* 水平の明帯＝リング外周を1周する“赤道ハイライト”（宝飾写真の象徴） */}
+              <Lightformer form="rect" intensity={9} position={[0, 1, 11]} scale={[16, 0.5, 1]} color="#ffffff" />
+              {/* 研磨面に走る鋭い縦の筋 */}
+              <Lightformer form="rect" intensity={10} position={[-5, 7, 6]} rotation={[0, 0, Math.PI / 5]} scale={[0.5, 11, 1]} color="#ffffff" />
+              <Lightformer form="rect" intensity={7} position={[6, 5, 5]} rotation={[0, 0, -Math.PI / 6]} scale={[0.4, 9, 1]} color="#ffffff" />
+              {/* 下からの弱い起こし光（底が真っ黒に潰れない） */}
+              <Lightformer form="ring" intensity={1.2} position={[0, -7, 7]} scale={[7, 7, 1]} color="#9aa2c0" />
             </group>
           </Environment>
         </Suspense>
@@ -325,7 +330,26 @@ export default function Viewer() {
         <AccessoryMeshes wireframe={wireframe} />
         {dims && <DimensionLabel />}
 
-        <ContactShadows position={[0, -12, 0]} opacity={0.4} scale={80} blur={2.5} far={30} resolution={512} color="#000000" />
+        {/* 反射フロア（製品写真風の艶のある黒床に作品が映り込む） */}
+        {!grid && (
+          <mesh position={[0, -12.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[400, 400]} />
+            <MeshReflectorMaterial
+              resolution={1024}
+              mirror={0.55}
+              blur={[320, 110]}
+              mixBlur={1.1}
+              mixStrength={2.4}
+              roughness={0.85}
+              depthScale={1.1}
+              minDepthThreshold={0.4}
+              maxDepthThreshold={1.25}
+              color="#0a0a11"
+              metalness={0.5}
+            />
+          </mesh>
+        )}
+        <ContactShadows position={[0, -11.95, 0]} opacity={0.5} scale={70} blur={2.4} far={26} resolution={1024} color="#000000" />
         {grid && (
           <Grid
             position={[0, -12, 0]}
@@ -364,6 +388,14 @@ export default function Viewer() {
             hoverColor="#e6c068"
           />
         </GizmoHelper>
+
+        {/* 後処理: ハイライトの輝き(Bloom)で宝飾写真のような煌めき＋周辺減光で被写体を引き立てる */}
+        {!wireframe && (
+          <EffectComposer multisampling={4}>
+            <Bloom mipmapBlur intensity={0.6} luminanceThreshold={0.72} luminanceSmoothing={0.18} radius={0.7} />
+            <Vignette offset={0.32} darkness={0.55} eskil={false} />
+          </EffectComposer>
+        )}
       </Canvas>
 
       <ContextTip />
