@@ -1,7 +1,8 @@
 import { nanoid } from 'nanoid';
 import type { AccessoryDesign, Warning } from '@/types/accessory';
 import { MATERIALS } from '@/lib/data/materials';
-import { estimateVolumeMm3 } from '@/lib/geometry';
+import { estimateVolumeMm3, buildModel } from '@/lib/geometry';
+import { analyzeMeshHealth, MeshHealth } from './meshHealth';
 
 export interface ManufacturingReport {
   warnings: Warning[];
@@ -13,6 +14,8 @@ export interface ManufacturingReport {
   volumeMm3: number;
   /** 3Dプリント原型に向くか */
   printable: boolean;
+  /** メッシュ健全性（水密/manifold の実測） */
+  meshHealth: MeshHealth;
 }
 
 function w(
@@ -114,6 +117,19 @@ export function runManufacturingCheck(design: AccessoryDesign): ManufacturingRep
     }
   }
 
+  // --- メッシュ健全性（水密/manifold の実測） ---
+  let meshHealth: MeshHealth = { allManifold: true, solids: 0, triangles: 0, openParts: [] };
+  try {
+    meshHealth = analyzeMeshHealth(buildModel(design));
+    if (!meshHealth.allManifold) {
+      warnings.push(
+        w('warning', '水密でない面があります', `${meshHealth.openParts.length}個のパーツに境界エッジ（開いた面）。鋳造/STEPでは要確認。`)
+      );
+    }
+  } catch {
+    /* メッシュ解析失敗時は健全性チェックをスキップ（本体動作は維持） */
+  }
+
   // --- 重量・原価 ---
   const volumeMm3 = estimateVolumeMm3(design);
   const mat = MATERIALS[design.materialId];
@@ -123,9 +139,31 @@ export function runManufacturingCheck(design: AccessoryDesign): ManufacturingRep
   // 3Dプリント原型適性（簡易）：致命エラーが無ければ可
   const printable = !warnings.some((x) => x.severity === 'error');
 
-  if (warnings.length === 0) {
+  // 水密＆ソリッド数の情報（緑）
+  if (meshHealth.solids > 0) {
+    warnings.push(
+      w(
+        'info',
+        meshHealth.allManifold ? '水密(manifold) ✓' : 'メッシュ要確認',
+        `${meshHealth.solids}個の独立ソリッド / 約${meshHealth.triangles.toLocaleString()}三角形。${
+          meshHealth.solids > 1 ? '3Dプリント時はスライサが自動結合します。' : ''
+        }`
+      )
+    );
+  }
+
+  if (warnings.length === 1 && warnings[0].title.startsWith('水密')) {
+    warnings.unshift(w('info', '製造チェック OK', '主要な強度・穴径の問題は検出されませんでした。', undefined));
+  } else if (warnings.length === 0) {
     warnings.push(w('info', '製造チェック OK', '主要な強度・穴径の問題は検出されませんでした。', undefined));
   }
 
-  return { warnings, weightGram: Math.round(weightGram * 100) / 100, costYen, volumeMm3: Math.round(volumeMm3), printable };
+  return {
+    warnings,
+    weightGram: Math.round(weightGram * 100) / 100,
+    costYen,
+    volumeMm3: Math.round(volumeMm3),
+    printable,
+    meshHealth,
+  };
 }
