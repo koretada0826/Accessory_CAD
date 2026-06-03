@@ -84,6 +84,34 @@ describe('geometry.buildModel', () => {
     expect(Number.isFinite(pos.getX(0))).toBe(true);
   });
 
+  it('リング各断面のバンドは外向き巻き（符号付き体積>0＝裏返り無し）', () => {
+    // 符号付き体積: 三角形 (v0,v1,v2) の dot(v0, v1×v2)/6 の総和。
+    // 外向きCCW巻きなら正、内向き(裏返り=暗くなる)なら負。
+    const signedVolume = (geo: any): number => {
+      const pos = geo.getAttribute('position');
+      const idx = geo.index;
+      const count = idx ? idx.count : pos.count;
+      const gi = (i: number) => (idx ? idx.getX(i) : i);
+      let vol = 0;
+      for (let i = 0; i < count; i += 3) {
+        const a = gi(i), b = gi(i + 1), c = gi(i + 2);
+        const ax = pos.getX(a), ay = pos.getY(a), az = pos.getZ(a);
+        const bx = pos.getX(b), by = pos.getY(b), bz = pos.getZ(b);
+        const cx = pos.getX(c), cy = pos.getY(c), cz = pos.getZ(c);
+        // dot(a, b×c)
+        vol += ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx);
+      }
+      return vol / 6;
+    };
+    for (const prof of ['flat', 'comfort', 'round', 'knife'] as const) {
+      const d = createDesign('ring');
+      if (d.params.kind === 'ring') d.params.profile = prof;
+      const model = buildModel(d);
+      const shank = model.parts.find((p) => p.id === 'shank')!;
+      expect(signedVolume(shank.geometry), `profile=${prof} の巻きが反転`).toBeGreaterThan(0);
+    }
+  });
+
   it('estimateVolumeMm3 は正の体積を返す', () => {
     for (const c of CATS) {
       expect(estimateVolumeMm3(createDesign(c))).toBeGreaterThan(0);

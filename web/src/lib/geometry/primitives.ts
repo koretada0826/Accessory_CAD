@@ -134,6 +134,7 @@ export function comfortProfile(thickness: number, width: number, seg = 12): THRE
     pts.push(new THREE.Vector2(t * Math.cos(a), w * 0.96 * Math.sin(a) * -1));
   }
   pts.push(new THREE.Vector2(-t + t * 0.15, -w)); // 下の小肩
+  pts.reverse(); // sweepProfileで外向き法線になる巻き（CCW）に揃える
   return pts;
 }
 
@@ -149,14 +150,14 @@ export function ellipseProfile(thickness: number, width: number, seg = 24): THRE
   return pts;
 }
 
-/** ナイフエッジ断面（外側が稜線） */
+/** ナイフエッジ断面（外側が稜線）。sweepProfileで外向き法線になるCCW巻き */
 export function knifeProfile(thickness: number, width: number): THREE.Vector2[] {
   const t = thickness / 2;
   const w = width / 2;
   return [
-    new THREE.Vector2(-t, -w),
-    new THREE.Vector2(-t, w),
     new THREE.Vector2(t, 0),
+    new THREE.Vector2(-t, w),
+    new THREE.Vector2(-t, -w),
   ];
 }
 
