@@ -169,8 +169,34 @@ export function buildBracelet(_design: AccessoryDesign, p: BraceletParams): Buil
   return { parts, bounds: { width: R * 2.2, height: R * 2.2, depth: p.plateWidth } };
 }
 
-/** 汎用フォールバック：角丸ボックス */
-export function buildGeneric(_design: AccessoryDesign, p: GenericParams): BuiltModel {
+/** 汎用 / イヤーカフ。earcuff は耳に挟むC字バンドとして生成 */
+export function buildGeneric(design: AccessoryDesign, p: GenericParams): BuiltModel {
+  if (design.category === 'earcuff') {
+    const parts: BuiltPart[] = [];
+    const R = Math.max(4, p.width / 2);
+    const tube = Math.max(0.8, p.thickness);
+    const arc = Math.PI * 1.45; // 開いたC字（約260°）
+    const cuff = new THREE.TorusGeometry(R, tube, 20, 80, arc);
+    // 開口部を下に向ける
+    cuff.rotateZ(Math.PI / 2 - arc / 2);
+    parts.push({ id: 'cuff', geometry: cuff, role: 'metal', componentType: 'body' });
+    // 端の装飾ボール（引っかかり防止＆見栄え）
+    for (const end of [0, arc]) {
+      const a = Math.PI / 2 - arc / 2 + end;
+      const ball = new THREE.SphereGeometry(tube * 1.25, 16, 12);
+      ball.translate(R * Math.cos(a), R * Math.sin(a), 0);
+      parts.push({ id: `cuff-end-${end}`, geometry: ball, role: 'metal', componentType: 'body' });
+    }
+    // 石（あれば前面に）
+    design.stones.forEach((st, i) => {
+      const gem = makeGem(st.diameter, st.cut);
+      gem.rotateX(Math.PI / 2);
+      gem.translate(st.position.x, R, st.position.y + tube);
+      parts.push({ id: `stone-${i}`, geometry: gem, role: 'stone', color: st.color });
+    });
+    return { parts, bounds: { width: R * 2 + tube * 2, height: R * 2 + tube * 2, depth: tube * 3 } };
+  }
+
   const geo = new THREE.BoxGeometry(p.width, p.height, p.thickness);
   return {
     parts: [{ id: 'body', geometry: geo, role: 'metal', componentType: 'body' }],
