@@ -74,10 +74,47 @@ def build_step(design: AccessoryDesign) -> bytes:
 
 
 def _bezel(d, height):  # type: ignore
-    """石を受けるベゼル（覆輪）の金属カラー: 外径=d+1.2, 内径=d を中空筒で"""
-    ro = d / 2 + 0.6
+    """石を受けるベゼル（覆輪）。上に向かってわずかに絞ったテーパー壁（石を抱える）。
+    軸=+Z / ガードル z=0 付近。loft失敗時は素朴な中空筒にフォールバック。"""
     ri = d / 2
-    return cq.Workplane("XY").circle(ro).circle(ri).extrude(height)
+    try:
+        outer = (
+            cq.Workplane("XY")
+            .circle(d / 2 + 0.6)
+            .workplane(offset=height)
+            .circle(d / 2 + 0.35)
+            .loft(combine=True)
+        )
+        inner = cq.Workplane("XY").circle(ri).extrude(height + 0.2).translate((0, 0, -0.1))
+        return outer.cut(inner)
+    except Exception:
+        return cq.Workplane("XY").circle(d / 2 + 0.6).circle(ri).extrude(height)
+
+
+def _prongs(d, count=4):  # type: ignore
+    """先細＋先玉の爪留め。軸=+Z / ガードル z=0。爪は石の周囲 count 本。"""
+    import math
+
+    r = d / 2 + 0.06
+    H = d * 0.9
+    res = None
+    for i in range(count):
+        a = (i / count) * 2 * math.pi + math.pi / count
+        try:
+            claw = (
+                cq.Workplane("XY")
+                .circle(0.3)
+                .workplane(offset=H)
+                .circle(0.17)
+                .loft(combine=True)
+                .translate((0, 0, -d * 0.1))
+            )
+        except Exception:
+            claw = cq.Workplane("XY").circle(0.26).extrude(H).translate((0, 0, -d * 0.1))
+        bead = cq.Workplane("XY").sphere(0.26).translate((0, 0, H - d * 0.1))
+        one = claw.union(bead).translate((r * math.cos(a), r * math.sin(a), 0))
+        res = one if res is None else res.union(one)
+    return res
 
 
 def _add_engraving(body, engraving, z_offset, cx=0.0, cy=0.0):  # type: ignore
@@ -104,6 +141,25 @@ def _add_engraving(body, engraving, z_offset, cx=0.0, cy=0.0):  # type: ignore
             # フォント未対応（日本語など）→ 刻印はスキップ（STEP本体は維持）
             continue
     return body
+
+
+def _add_milgrain(band, R, width):  # type: ignore
+    """バンド両縁に微小な粒（ミル打ち）を回す。粒は全てコンパウンドにまとめ、
+    band と 1 回だけ union（逐次unionはOCCで非常に遅いため）。"""
+    import math
+
+    # STEPはBREP球が重い（粒数に比例して肥大・低速）ため、見た目を保てる範囲で粒を粗めに。
+    beadR = min(0.26, width * 0.14)
+    rPath = R - beadR * 0.3
+    beads = []
+    for z in (width / 2 - beadR * 0.4, -width / 2 + beadR * 0.4):
+        n = max(12, min(44, int((2 * math.pi * rPath) / (beadR * 2.6))))
+        for i in range(n):
+            a = (i / n) * 2 * math.pi
+            s = cq.Workplane("XY").sphere(beadR).translate((rPath * math.cos(a), rPath * math.sin(a), z)).val()
+            beads.append(s)
+    comp = cq.Compound.makeCompound(beads)
+    return band.union(cq.Workplane(obj=comp))
 
 
 def _ring(p, stones=None, engraving=None) -> "cq.Workplane":  # type: ignore
@@ -133,14 +189,24 @@ def _ring(p, stones=None, engraving=None) -> "cq.Workplane":  # type: ignore
         if engraving:
             band = _add_engraving(band, engraving, plate_h / 2, 0.0, plate_cy)
 
-    # 石のベゼル石座（リング上部 +Y）
+    # 石座（リング上部 +Y）。設定に応じて覆輪 or 先玉爪
     for s in (stones or []):
         try:
             d = s["d"]
-            seat = _bezel(d, max(1.0, d * 0.45)).rotateAboutCenter((1, 0, 0), -90)
+            if s.get("setting") == "prong":
+                seat = _prongs(d, 6 if d >= 5 else 4).rotateAboutCenter((1, 0, 0), -90)
+            else:
+                seat = _bezel(d, max(1.0, d * 0.45)).rotateAboutCenter((1, 0, 0), -90)
             band = band.union(seat.translate((s["x"], outer_r + 0.2, 0)))
         except Exception:
             continue
+
+    # ミル打ち（高級仕上げ）: バンド両縁に粒飾り。重い演算なので控えめな粒数で。
+    if p.get("milgrain"):
+        try:
+            band = _add_milgrain(band, outer_r, width)
+        except Exception:
+            pass
     return band
 
 
@@ -219,7 +285,10 @@ def _pendant(p, stones=None, engraving=None) -> "cq.Workplane":  # type: ignore
     for s in (stones or []):
         try:
             d = s["d"]
-            seat = _bezel(d, max(1.0, d * 0.4)).translate((s["x"], s["y"], t / 2))
+            if s.get("setting") == "prong":
+                seat = _prongs(d, 6 if d >= 5 else 4).translate((s["x"], s["y"], t / 2))
+            else:
+                seat = _bezel(d, max(1.0, d * 0.4)).translate((s["x"], s["y"], t / 2))
             body = body.union(seat)
         except Exception:
             continue
