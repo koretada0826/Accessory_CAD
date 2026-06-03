@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, Lightformer, ContactShadows, Grid, Html } from '@react-three/drei';
+import { OrbitControls, Environment, Lightformer, ContactShadows, Grid, Html, GizmoHelper, GizmoViewcube } from '@react-three/drei';
 import * as THREE from 'three';
 import { useDesignStore } from '@/store/useDesignStore';
 import { buildModel } from '@/lib/geometry';
@@ -201,6 +201,7 @@ export default function Viewer() {
   const [dims, setDims] = useState(true);
   const [preset, setPreset] = useState<ViewPreset>('persp');
   const [nonce, setNonce] = useState(0);
+  const [spin, setSpin] = useState(false);
 
   // R3F は flexbox 内で初回サイズを 0 と測定し、GLルート生成を遅延することがある
   // （ResizeObserver の初回コールバックが取りこぼされるケース）。
@@ -240,6 +241,7 @@ export default function Viewer() {
         <Btn active={wireframe} onClick={() => setWireframe((v) => !v)}>ワイヤー</Btn>
         <Btn active={grid} onClick={() => setGrid((v) => !v)}>グリッド</Btn>
         <Btn active={dims} onClick={() => setDims((v) => !v)}>寸法</Btn>
+        <Btn active={spin} onClick={() => setSpin((v) => !v)}>自動回転</Btn>
       </div>
 
       <Canvas
@@ -293,7 +295,28 @@ export default function Viewer() {
           />
         )}
 
-        <OrbitControls makeDefault enableDamping dampingFactor={0.1} minDistance={5} maxDistance={400} />
+        {/* 全方位オービット（上下も含め360°自由に見渡せる）+ 自動回転 */}
+        <OrbitControls
+          makeDefault
+          enableDamping
+          dampingFactor={0.1}
+          minDistance={5}
+          maxDistance={400}
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI}
+          autoRotate={spin}
+          autoRotateSpeed={1.6}
+        />
+
+        {/* Blender風 ビューキューブ（面/辺/角をクリックでその視点へスナップ） */}
+        <GizmoHelper alignment="top-right" margin={[70, 86]}>
+          <GizmoViewcube
+            color="#1b1b27"
+            textColor="#e6c068"
+            strokeColor="#3a3a5a"
+            hoverColor="#e6c068"
+          />
+        </GizmoHelper>
       </Canvas>
 
       <ContextTip />
