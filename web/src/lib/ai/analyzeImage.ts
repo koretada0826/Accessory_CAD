@@ -90,10 +90,10 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
           },
         };
       }
-      // ネックレス（チェーン）かつ中央に大きな抜き＝オープン形状 → 画像をそのまま
-      // メッシュ化せず、パラメトリックな高級ネックレス構造として再構成する（新方式）。
-      const cutout = contour.holes.find((h) => !h.isTop && h.diameterMm > Math.min(contour.widthMm, contour.heightMm) * 0.22);
-      if (contour.hasChain && cutout && contour.heightMm >= contour.widthMm * 0.92) {
+      // ネックレス（チェーン検出）→ 画像をそのままメッシュ化せず、パラメトリックな
+      // 高級ネックレス構造(luxury_open_teardrop_necklace)として再構成する（新方式）。
+      // 縦長(ペンダント＋チェーン)であれば、中央抜きの有無に関わらず確実にこの経路へ。
+      if (contour.hasChain && contour.heightMm >= contour.widthMm * 0.8) {
         const design = signatureNecklace();
         design.meta.origin = 'image';
         design.meta.sourceImage = dataUrl;

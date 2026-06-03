@@ -124,8 +124,9 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
   // ネックレス: 本物のケーブルチェーン（噛み合う楕円リンク）＋留め具/アジャスター/エンドタグ
   let chainRise = 0;
   if (design.category === 'necklace') {
-    const reach = Math.max(p.width, 18) * 0.78;
-    const rise = Math.max(p.height, 22) * 1.7;
+    // 構図はペンダントを主役に。チェーンは長すぎないV字（製品写真の寄り構図）。
+    const reach = Math.max(p.width, 16) * 0.6;
+    const rise = Math.max(p.height, 20) * 1.25;
     chainRise = rise + (bailConnectY - topY) + 2;
     for (const part of buildCableChain(bailConnectX, bailConnectY, reach, rise)) parts.push(part);
   }
@@ -191,8 +192,8 @@ function buildReliefMesh(p: PendantParams): THREE.BufferGeometry | null {
 
 /** 楕円リンク（ケーブルチェーンの1コマ）。tangent方向に長い楕円トーラス。 */
 function makeOvalLink(linkLen: number, linkWidth: number, wire: number): THREE.BufferGeometry {
-  const g = new THREE.TorusGeometry((linkLen + linkWidth) / 4, wire, 10, 28);
-  g.scale((linkLen / linkWidth) * 1.0, 1, 1); // ローカルX(=後でtangent)に伸ばし楕円に
+  const g = new THREE.TorusGeometry((linkLen + linkWidth) / 4, wire, 12, 30);
+  g.scale(linkLen / linkWidth, 1, 1); // ローカルX(=後でtangent)に伸ばし楕円に
   return g;
 }
 
@@ -204,9 +205,9 @@ function makeOvalLink(linkLen: number, linkWidth: number, wire: number): THREE.B
  */
 function buildCableChain(cx: number, cy: number, reach: number, rise: number): BuiltPart[] {
   const parts: BuiltPart[] = [];
-  const wire = 0.16;
-  const linkLen = 1.6, linkWidth = 1.1; // mm（細いケーブルチェーン）
-  const step = linkLen * 0.62; // 噛み合うよう重ねる
+  const wire = 0.2;
+  const linkLen = 2.0, linkWidth = 1.35; // mm（視認できる細めのケーブルチェーン）
+  const step = linkLen * 0.56; // 噛み合うよう重ねる
 
   const placeLink = (x: number, y: number, ang: number, parity: number, id: string) => {
     const link = makeOvalLink(linkLen, linkWidth, wire);
