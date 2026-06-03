@@ -14,6 +14,44 @@ import EngravingDecal from './EngravingDecal';
 
 type ViewPreset = 'persp' | 'front' | 'side' | 'back' | 'top';
 
+/**
+ * 金属の微細な反射差用の手続きノイズ（roughnessMap）。
+ * 低解像度の滑らかな斑＝面ごとに僅かに荒さが変わり、均一なCG反射を脱して
+ * 鋳造研磨された本物の金属らしい“揺らぎ”を与える。
+ */
+function makeMicroRoughTexture(): THREE.Texture {
+  const N = 64;
+  const data = new Uint8Array(N * N * 4);
+  // 滑らかにするため2x2の値を平均しつつ、中央値高め(=研磨寄り)の斑に
+  const base = new Float32Array(N * N);
+  for (let i = 0; i < N * N; i++) base[i] = Math.random();
+  const sm = new Float32Array(N * N);
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      let s = 0, c = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = (x + dx + N) % N, yy = (y + dy + N) % N;
+          s += base[yy * N + xx]; c++;
+        }
+      sm[y * N + x] = s / c;
+    }
+  }
+  for (let i = 0; i < N * N; i++) {
+    // 0.78〜1.0 の範囲（roughnessに乗算＝僅かな変動）
+    const r = Math.round((0.78 + sm[i] * 0.22) * 255);
+    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = r;
+    data[i * 4 + 3] = 255;
+  }
+  const tex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 /** 構造JSON → メッシュ群。選択パーツをハイライト */
 function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
   const design = useDesignStore((s) => s.design);
@@ -48,6 +86,14 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
     }
     return { model, mat, patternRoughness };
   }, [design]);
+
+  // 金属の微細な反射差テクスチャ（一度だけ生成し全金属で共有）
+  const microRough = useMemo(() => {
+    const t = makeMicroRoughTexture();
+    t.repeat.set(5, 2.5);
+    return t;
+  }, []);
+  useEffect(() => () => microRough.dispose(), [microRough]);
 
   // 選択中 component の type（ハイライト対象）
   const selectedType = components.find((c) => c.id === selectedId)?.type;
@@ -106,6 +152,8 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
               color={highlighted ? new THREE.Color(mat.color).lerp(new THREE.Color('#ffffff'), 0.15) : mat.color}
               metalness={mat.metalness}
               roughness={patternRoughness}
+              // 微細な反射差（均一CG反射を脱して本物の金属らしい揺らぎ）
+              roughnessMap={mat.metalness > 0.5 ? microRough : undefined}
               // 実写HDRIに合わせ、映り込みは豊かだが白飛びしない強度に
               clearcoat={mat.metalness > 0.5 ? 0.5 : 0}
               clearcoatRoughness={0.1}

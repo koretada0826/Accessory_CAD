@@ -35,6 +35,7 @@ export interface BuiltModel {
  */
 export function sweepProfile(profile: THREE.Vector2[], R: number, segments = 160): THREE.BufferGeometry {
   const positions: number[] = [];
+  const uvs: number[] = [];
   const indices: number[] = [];
   const n = profile.length;
 
@@ -47,6 +48,8 @@ export function sweepProfile(profile: THREE.Vector2[], R: number, segments = 160
       const v = profile[i].y; // axial (z)
       const r = R + u;
       positions.push(r * ct, r * st, v);
+      // UV: u=周方向, v=断面方向（roughnessMap等の微細表現用）
+      uvs.push(s / segments, i / Math.max(1, n - 1));
     }
   }
 
@@ -62,6 +65,7 @@ export function sweepProfile(profile: THREE.Vector2[], R: number, segments = 160
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
