@@ -45,7 +45,7 @@
 ## 横断
 - [ ] 単体テスト（geometry/manufacturing/contour の純関数）
 - [x] エラーバウンダリ（ErrorBoundary.tsx）。3Dビュー/編集パネル/AIチャット/製造/左パネルを個別に保護。クラッシュ時も他領域は生存、フォールバックに「もう一度表示/安全な状態に戻す(既定デザイン)」。リグレッション無し確認
-- [ ] README/DESIGN を最新化し続ける
+- [x] ARCHITECTURE.md 新規作成（Atelier↔CadQuery関係・データフロー・画像パイプライン・ディレクトリ役割を図解）＋ README最新化（STEP/刻印/穴石検出/水密/PNG/チャット拡張/モード等を反映、ロードマップStep3完了）
 
 ---
 
@@ -61,3 +61,4 @@
 - iter8: 3DビューのPNG書き出し。CanvasにpreserveDrawingBufferを付与しcanvas.toDataURLでキャプチャ、エクスポートメニューに画像保存(PNG)を追加。toDataURLが830KBの実コンテンツPNG取得を確認。
 - iter9: AIチャット語彙を大幅拡張(chatEdit.ts)。宝石名→色/カット/留め方、石の追加・削除・数指定、素材8種、断面/トップ、形状、バチカン、刻印(引用符・と刻んで)、幅/高さ/厚み/号の数値絶対指定、複合指示対応。実機で「ルビーを入れて中央に、ホワイトゴールドにして」が同時反映を確認。
 - iter10: エラーバウンダリ導入(ErrorBoundary.tsx, getDerivedStateFromError+componentDidCatch)。page.tsxで5領域(3Dビュー/左/編集/チャット/製造)を個別ラップ。クラッシュ時も他領域生存・フレンドリー復帰(もう一度表示/安全な状態に戻す)。リグレッション無し。
+- iter11: ドキュメント整備。ARCHITECTURE.md新規（Atelier↔CadQueryの仕組み・二系統エンジン・画像→構造化パイプライン・ディレクトリ役割・1アクションの流れを図解）。README機能表とロードマップを10イテレーション分の新機能で最新化。
