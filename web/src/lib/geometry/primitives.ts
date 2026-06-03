@@ -275,23 +275,46 @@ export function makePave(
   a1: number,
 ): { stones: THREE.BufferGeometry[]; rails: THREE.BufferGeometry } {
   const span = a1 - a0;
-  const sd = Math.min(bandWidth * 0.52, 1.7); // 小粒石径
   const full = span >= Math.PI * 1.99;
-  const n = Math.max(5, Math.round((Math.abs(span) * (outerR + sd * 0.4)) / (sd * 1.18)));
+  // 1粒ずつ認識できる大きさ・間隔（“光の線”にしない）
+  const sd = Math.min(bandWidth * 0.62, 2.0);
+  const pitch = sd * 1.32; // 石間隔（石径より広く取り、間に粒留めが入る）
+  const n = Math.max(4, Math.round((Math.abs(span) * outerR) / pitch));
+
   const stones: THREE.BufferGeometry[] = [];
+  const angs: number[] = [];
   for (let i = 0; i < n; i++) {
     const t = full ? i / n : i / (n - 1);
     const ang = a0 + t * span;
+    angs.push(ang);
     const gem = makeGem(sd, 'round');
     gem.rotateZ(ang - Math.PI / 2); // テーブルを半径方向の外へ
-    gem.translate(Math.cos(ang) * (outerR - sd * 0.12), Math.sin(ang) * (outerR - sd * 0.12), 0);
+    const rr = outerR - sd * 0.08; // ガードルがバンド面に沈む
+    gem.translate(Math.cos(ang) * rr, Math.sin(ang) * rr, 0);
     stones.push(gem);
   }
-  // 両縁のミル打ちレール（石座のビーズ）
-  const railZ = Math.min(bandWidth / 2 - 0.18, sd * 0.62);
-  const rail0 = makeMilgrain(outerR - 0.12, railZ, 0.17, a0, a1);
-  const rail1 = makeMilgrain(outerR - 0.12, -railZ, 0.17, a0, a1);
-  const rails = mergeGeometries([rail0, rail1], false)!;
+
+  // 粒留め（ビーズ）: 石と石の境界の両縁に1粒ずつ置く＝ビーズセッティングの構造感
+  const beadR = Math.max(0.13, sd * 0.16);
+  const railZ = Math.min(bandWidth / 2 - beadR * 0.9, sd * 0.6);
+  const bAngs: number[] = [];
+  for (let i = 0; i < n - 1; i++) bAngs.push((angs[i] + angs[i + 1]) / 2);
+  if (full) bAngs.push((angs[n - 1] + angs[0] + Math.PI * 2) / 2);
+  else {
+    // 端の粒留め
+    const half = (span / Math.max(1, n - 1)) / 2;
+    bAngs.push(a0 - half, a1 + half);
+  }
+  const beadGeos: THREE.BufferGeometry[] = [];
+  for (const ba of bAngs) {
+    for (const z of [railZ, -railZ]) {
+      const b = new THREE.SphereGeometry(beadR, 8, 7);
+      b.translate(Math.cos(ba) * (outerR + beadR * 0.2), Math.sin(ba) * (outerR + beadR * 0.2), z);
+      beadGeos.push(b);
+    }
+  }
+  const rails = mergeGeometries(beadGeos, false)!;
+  rails.computeVertexNormals();
   return { stones, rails };
 }
 
@@ -320,20 +343,30 @@ export function makeBezel(d: number): THREE.BufferGeometry {
  * 正準向き: 石の軸＝+Y。呼び出し側で回転・移動する。
  */
 export function makeProngs(d: number, count = 4): THREE.BufferGeometry {
-  const r = d / 2 + 0.08;
-  const H = d * 0.95;
-  const tilt = 0.22; // 上端が内側へ倒れる角
+  const r = d / 2 + 0.04; // 爪はガードルのすぐ外
+  const baseY = -d * 0.14; // 爪根元（ガードル下）
+  const tipY = d * 0.46; // 爪先（クラウン上＝石にかぶさる高さ）
+  const H = tipY - baseY;
+  const beadR = Math.max(0.18, d * 0.06);
+  const tilt = 0.14; // 爪先が石にかぶさる角
   const geos: THREE.BufferGeometry[] = [];
+
+  // バスケット: 爪根元を繋ぐ細い輪（石が留まっている構造の説得力）
+  const basket = new THREE.TorusGeometry(d / 2 + 0.02, Math.max(0.1, d * 0.045), 8, 30);
+  basket.rotateX(Math.PI / 2);
+  basket.translate(0, baseY + d * 0.06, 0);
+  geos.push(basket);
+
   for (let i = 0; i < count; i++) {
     const a = (i / count) * Math.PI * 2 + Math.PI / count;
-    // 爪本体（下太・上細のテーパー） + 先玉
-    const claw = new THREE.CylinderGeometry(0.17, 0.34, H, 10);
-    claw.translate(0, H / 2 - d * 0.12, 0);
-    const bead = new THREE.SphereGeometry(0.26, 10, 10);
-    bead.translate(0, H - d * 0.12, 0);
+    // 爪本体（下太・上細のテーパー） + 先玉（石にかぶさる）
+    const claw = new THREE.CylinderGeometry(d * 0.05, d * 0.1, H, 12);
+    claw.translate(0, baseY + H / 2, 0);
+    const bead = new THREE.SphereGeometry(beadR, 12, 12);
+    bead.translate(0, tipY, 0);
     let one = mergeGeometries([claw, bead], false)!;
-    one.rotateZ(tilt); // 上端を -X へ倒す
-    one.rotateY(-a); // -X を内向き(中心方向)に合わせて円周配置の向きへ
+    one.rotateZ(tilt); // 上端を -X（内側）へ倒し石を抱える
+    one.rotateY(-a); // -X を中心方向に合わせる
     one.translate(Math.cos(a) * r, 0, Math.sin(a) * r);
     geos.push(one);
   }
