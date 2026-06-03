@@ -105,3 +105,4 @@
 - iter(P2-4): イヤーカフをC字バンド化(buildGeneric: category=earcuffで開いたトーラス260°＋両端ボール＋石)。汎用ボックス→耳に挟むC字へ。実機で19.2mmのイヤーカフを確認。15テスト維持。
 - iter(P2-5): STEP出力に石座・刻印を反映。cad.pyに_bezel(覆輪石座)/_add_engraving(前面text凹凸)を追加し_pendant/_ringへ。build_stepでdesign.stones/engravingを渡す。フォント非対応(日本語)はtry/exceptでスキップし本体STEP維持。直接&サーバー経由(api --reload再起動)で石+刻印付きSTEP生成を検証(19.5KB)。15テスト維持。
 - iter(P2-6): レスポンシブ最低限。page.tsxの左右パネル幅を w-52/w-72 (小画面)→lg:w-64/w-80 に。960px幅でも全パネル+3Dビューが崩れず表示を確認。
+- iter(P2-7): カテゴリアイコンを絵文字→上質なSVGライン画に。CategoryIcon.tsx（12カテゴリ全て stroke=currentColor の線画SVG）を新設、LeftSidebarで選択時gold-400発色。環境差の出る絵文字を排し質感統一。typecheck/15テスト合格。
