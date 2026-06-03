@@ -458,7 +458,7 @@ function loadToImageData(dataUrl: string): Promise<{ data: Uint8ClampedArray; W:
 // ---------------------------------------------------------------------------
 // 2. 前景マスク
 // ---------------------------------------------------------------------------
-function buildForegroundMask(data: Uint8ClampedArray, W: number, H: number): { mask: Uint8Array; usedAlpha: boolean } {
+export function buildForegroundMask(data: Uint8ClampedArray, W: number, H: number): { mask: Uint8Array; usedAlpha: boolean } {
   const N = W * H;
   const mask = new Uint8Array(N);
 
@@ -486,24 +486,62 @@ function buildForegroundMask(data: Uint8ClampedArray, W: number, H: number): { m
   grab(0, 0); grab(W - 6, 0); grab(0, H - 6); grab(W - 6, H - 6);
   const bg = [0, 1, 2].map((k) => corners.reduce((s, c) => s + c[k], 0) / corners.length);
 
-  // 各画素の「背景色からの距離」を計算（0..~441）
+  // 四隅の色がバラつく＝背景が不均一(ボケ/グラデ/被写体が端に掛かる)。
+  // その場合は背景色距離法が破綻するため、輝度ベースの分離に切り替える。
+  let cornerVar = 0;
+  for (const c of corners) cornerVar += (c[0] - bg[0]) ** 2 + (c[1] - bg[1]) ** 2 + (c[2] - bg[2]) ** 2;
+  cornerVar = Math.sqrt(cornerVar / corners.length);
+
+  // 背景色からの距離マスク
   const dist = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const idx = i * 4;
     const dr = data[idx] - bg[0], dg = data[idx + 1] - bg[1], db = data[idx + 2] - bg[2];
     dist[i] = Math.sqrt(dr * dr + dg * dg + db * db);
   }
-  // Otsu法で「背景/前景」を自動分離する閾値を決定（照明ムラ・低コントラストに強い）
-  const otsuT = otsuThreshold(dist, N);
-  const T = Math.max(otsuT, 28); // ノイズ下限
-  for (let i = 0; i < N; i++) mask[i] = dist[i] > T ? 1 : 0;
+  const distMask = thresholdMask(dist, N, 28);
+  const distFrac = fgFraction(distMask);
+
+  // 距離法が信頼できる条件: 四隅が均一(cornerVar小)かつ前景率が妥当(2〜60%)
+  if (cornerVar < 42 && distFrac > 0.02 && distFrac < 0.6) {
+    return { mask: distMask, usedAlpha };
+  }
+
+  // 輝度ベース（暗背景×明るい被写体／明背景×暗い被写体 の実写写真に強い）。
+  // 背景の最頻輝度(モード)を基準に、そこから離れた画素＝被写体とする（四隅サンプルに依存しない）。
+  const lum = new Float32Array(N);
+  const hist = new Float64Array(256);
+  for (let i = 0; i < N; i++) {
+    const l = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
+    lum[i] = l;
+    hist[Math.min(255, Math.max(0, Math.round(l)))]++;
+  }
+  let modeBin = 0;
+  for (let b = 1; b < 256; b++) if (hist[b] > hist[modeBin]) modeBin = b;
+  // モードからの輝度距離
+  const d = new Float32Array(N);
+  for (let i = 0; i < N; i++) d[i] = Math.abs(lum[i] - modeBin);
+  const dt = Math.max(otsuThreshold(d, N, 255), 22);
+  for (let i = 0; i < N; i++) mask[i] = d[i] > dt ? 1 : 0;
   return { mask, usedAlpha };
 }
 
+function thresholdMask(dist: Float32Array, n: number, floor: number): Uint8Array {
+  const T = Math.max(otsuThreshold(dist, n), floor);
+  const m = new Uint8Array(n);
+  for (let i = 0; i < n; i++) m[i] = dist[i] > T ? 1 : 0;
+  return m;
+}
+
+function fgFraction(mask: Uint8Array): number {
+  let c = 0;
+  for (let i = 0; i < mask.length; i++) c += mask[i];
+  return c / mask.length;
+}
+
 /** Otsu法: 値配列(0..maxVal)を2クラスに分ける閾値を返す */
-function otsuThreshold(values: Float32Array, n: number): number {
+function otsuThreshold(values: Float32Array, n: number, maxVal = 441.673): number {
   const BINS = 256;
-  const maxVal = 441.673; // sqrt(255^2*3)
   const hist = new Float64Array(BINS);
   for (let i = 0; i < n; i++) {
     const b = Math.min(BINS - 1, Math.floor((values[i] / maxVal) * BINS));
@@ -577,28 +615,35 @@ function morphClose(mask: Uint8Array, W: number, H: number): Uint8Array {
 // ---------------------------------------------------------------------------
 // 3. 最大連結成分（4近傍BFS）
 // ---------------------------------------------------------------------------
-function largestComponent(mask: Uint8Array, W: number, H: number): { mask: Uint8Array; area: number } | null {
+export function largestComponent(mask: Uint8Array, W: number, H: number): { mask: Uint8Array; area: number } | null {
   const N = W * H;
   const label = new Int32Array(N).fill(0);
   const queue = new Int32Array(N);
-  let best = -1, bestArea = 0, cur = 0;
+  const cx0 = W / 2, cy0 = H / 2;
+  const halfDiag = Math.sqrt(cx0 * cx0 + cy0 * cy0);
+  let best = -1, bestScore = 0, bestArea = 0, cur = 0;
 
   for (let s = 0; s < N; s++) {
     if (mask[s] === 0 || label[s] !== 0) continue;
     cur++;
-    let head = 0, tail = 0, area = 0;
+    let head = 0, tail = 0, area = 0, sx = 0, sy = 0;
     queue[tail++] = s;
     label[s] = cur;
     while (head < tail) {
       const p = queue[head++];
       area++;
       const x = p % W, y = (p / W) | 0;
+      sx += x; sy += y;
       if (x > 0 && mask[p - 1] && !label[p - 1]) { label[p - 1] = cur; queue[tail++] = p - 1; }
       if (x < W - 1 && mask[p + 1] && !label[p + 1]) { label[p + 1] = cur; queue[tail++] = p + 1; }
       if (y > 0 && mask[p - W] && !label[p - W]) { label[p - W] = cur; queue[tail++] = p - W; }
       if (y < H - 1 && mask[p + W] && !label[p + W]) { label[p + W] = cur; queue[tail++] = p + W; }
     }
-    if (area > bestArea) { bestArea = area; best = cur; }
+    // 面積 × 中央寄り重み（端のボケ/破片より中央の被写体を優先）
+    const dxc = sx / area - cx0, dyc = sy / area - cy0;
+    const centerProx = 1 - Math.sqrt(dxc * dxc + dyc * dyc) / halfDiag; // 0..1
+    const score = area * (0.45 + 0.55 * Math.max(0, centerProx));
+    if (score > bestScore) { bestScore = score; best = cur; bestArea = area; }
   }
   if (best < 0) return null;
   const out = new Uint8Array(N);
