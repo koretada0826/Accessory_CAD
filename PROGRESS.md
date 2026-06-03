@@ -121,3 +121,8 @@
 - iter(Q1): 宝石をブリリアントカットに刷新。makeGemを円柱+円錐→テーブル/クラウン/ガードル/パビリオンの手続き的ブリリアント(非インデックス+フラット法線でファセットが立つ)。カット別(ラウンド/オーバル/ペア/マーキス/プリンセス/エメラルド/カボション)。石マテリアルもtransmission0.85/ior2.4/clearcoat/iridescence/DoubleSideで屈折感強化。
 - iter(Q2): 石座精密化。makeBezel(肉厚テーパー覆輪/Lathe)・makeProngs(下太上細テーパー＋先玉＋内側絞り爪)を追加し、ring/pendant/earringsの石座を統一。石径5mm以上は6本爪。
 - iter(Q3): 画像の立体レリーフ化。imageContour.extractReliefで陰影→高さマップ(最大72セル/マスク内正規化)、pendant.buildReliefMeshで前面にバスレリーフ隆起メッシュ(PlaneGeometry準拠+Z法線、マスク内のみ面張り)。STL/OBJ/GLBに自動反映=3Dプリント/鋳造データにも乗る。PropertyPanelに強さスライダー。本番ビルド成功(/ = 309kB)、vitest 21件合格。
+- iter(Q4): 表面ディテール①。メタルをmeshPhysicalMaterial(clearcoat/envMapIntensity2.4/研磨roughness0.6倍)に、環境光強化(res512+細帯Lightformerで鋭いハイライト筋)。ミル打ちmakeMilgrain(円周の微小粒)をリングのバンド両縁＋ベゼル縁に、PropertyPanelにトグル。
+- iter(Q5): 表面ディテール②。甲丸をブロブ→外ドーム内フラットのcomfortProfile、平打を45°面取りのchamferProfileに。
+- iter(Q6): バンド裏返り(法線反転)バグ修正。符号付き体積で巻き順を検証するテストを追加し、comfort(新規)とknife(既存の潜在バグ=暗く描画)の裏返りを検出・修正。全断面で外向き保証。
+- iter(Q7): STEP側も高品質化(②工場入稿の本命)。cad.py: _bezelテーパー化(loft+cut), _prongs新設(先細loft爪+先玉, setting=prongで分岐), _add_milgrain(粒をCompoundにまとめ1回union)。ring/pendant両対応。cadquery2.7検証=爪リング99KB/0.5s,ミル打ち2.5MB/3.2s。宝石本体は鋳造後留めのためSTEP非含有が正。
+- 状態: ①表面ディテール+②STEP高品質 完了。本番ビルド成功、vitest 23件合格。ユーザー要望「もっと高級感」継続中=次の候補: テクスチャ(ヘアライン/ハンマー打ちの実体化)、爪のキャッチャー強化、HDR環境、製品写真風ライティング、メレのSTEP反映。
