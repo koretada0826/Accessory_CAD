@@ -46,14 +46,19 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
   if (category === 'pendant') {
     const contour = await extractContour(dataUrl, { targetLongestMm: 26, symmetrize: true });
     if (contour) {
-      // 中央に大きな穴 → 環状（リング）と判定し Ring に変換
+      // 中央に大きな穴 かつ 外形がほぼ円形 → 環状（リング）と判定し Ring に変換。
+      // しずく/ハート等の「中央が抜けたペンダント」をリングに誤変換しないよう円形度を要求。
       const minSide = Math.min(contour.widthMm, contour.heightMm);
-      const central = contour.holes.find(
-        (h) =>
-          Math.abs(h.xMm) < contour.widthMm * 0.2 &&
-          Math.abs(h.yMm) < contour.heightMm * 0.2 &&
-          h.diameterMm > minSide * 0.42
-      );
+      const maxSide = Math.max(contour.widthMm, contour.heightMm);
+      const roundish = minSide / maxSide > 0.82; // 縦横比がほぼ1
+      const central = roundish
+        ? contour.holes.find(
+            (h) =>
+              Math.abs(h.xMm) < contour.widthMm * 0.18 &&
+              Math.abs(h.yMm) < contour.heightMm * 0.18 &&
+              h.diameterMm > minSide * 0.45
+          )
+        : undefined;
       if (central) {
         const ring = createDesign('ring', '画像トレース リング');
         ring.meta.origin = 'image';
@@ -84,7 +89,9 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
           },
         };
       }
-      const design = createDesign('pendant', '画像トレース ペンダント');
+      // チェーンが検出されたらネックレス（ペンダント＋チェーンのプレビュー）として生成
+      const isNecklace = contour.hasChain;
+      const design = createDesign(isNecklace ? 'necklace' : 'pendant', isNecklace ? '画像トレース ネックレス' : '画像トレース ペンダント');
       design.meta.origin = 'image';
       design.meta.sourceImage = dataUrl;
       design.symmetry.mirrorX = contour.symmetric;
@@ -149,6 +156,9 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
         }
       }
 
+      if (isNecklace) features.push('ネックレスと判定 → チェーンを分離し、ペンダントをCAD化（チェーンはプレビュー）');
+      const decoHoles = contour.holes.filter((h) => !h.isTop).length;
+      if (decoHoles > 0) features.push(`内側のくり抜き${decoHoles}個を反映（オープン形状を再現）`);
       features.push(`輪郭 ${contour.pointCount}点を抽出${contour.usedAlpha ? '（透過PNG）' : ''}`);
       features.push(`外形 ${contour.widthMm}×${contour.heightMm}mm を推定`);
       features.push(contour.symmetric ? `左右対称を検出（補正適用 / score ${contour.symmetryScore}）` : `非対称形状（score ${contour.symmetryScore}）`);
@@ -179,7 +189,7 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
         detected: {
           aspectRatio: round2(aspectRatio),
           avgBrightness: round2(avgBrightness),
-          estimatedCategory: 'pendant',
+          estimatedCategory: isNecklace ? 'necklace' : 'pendant',
           symmetric: contour.symmetric,
           features,
           overlayPath: contour.overlayPath,

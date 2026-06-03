@@ -59,6 +59,8 @@ export interface ContourResult {
   bail: DetectedBail | null;
   /** 立体レリーフ用の高さマップ（gx×gy・0..1・マスク外=-1） */
   relief: { gx: number; gy: number; data: number[] } | null;
+  /** 被写体（ペンダント）の上に細い構造＝チェーンが伸びている＝ネックレス画像 */
+  hasChain: boolean;
   /** 製造可能性のため面取りした鋭利な角の数 */
   correctedCorners: number;
   /** 元画像に重ねる輪郭プレビュー（SVG path・処理座標系） */
@@ -84,13 +86,24 @@ export async function extractContour(
   const { data, W, H } = await loadToImageData(dataUrl);
 
   const { mask, usedAlpha } = buildForegroundMask(data, W, H);
-  // ノイズ低減: open(微小スペック除去)→close(微小ピンホール埋め)。
-  // 半径1なので実際の内部穴(数px〜)は保持される。
-  const cleaned = morphClose(morphOpen(mask, W, H), W, H);
-  const comp = largestComponent(cleaned, W, H);
-  if (!comp || comp.area < W * H * 0.015) return null; // 主要被写体が見つからない
+  // 「アクセサリー構造」として理解する前処理:
+  //   close(r3)で密集部(ペンダント)を塊化 → open(r1)で細線(チェーン)を除去。
+  //   これにより、ネックレス全体を1輪郭にせず、中央のペンダントを主対象に分離する。
+  const solid = morphOpen(morphCloseR(mask, W, H, 3), W, H);
+  const comp = bestSubjectComponent(solid, W, H);
+  if (!comp || comp.area < W * H * 0.012) return null; // 主要被写体が見つからない
+  // 外形は穴埋め後(filled)で滑らかに、内部穴/石は元成分(unfilled)で検出する
+  const subjectMask = comp.unfilled;
 
-  let contourPx = mooreTrace(comp.mask, W, H);
+  // チェーン検出: 生前景の最上端が、ペンダント上端より十分上にある＝ネックレス
+  let rawTop = H, pendTop = H;
+  for (let i = 0; i < W * H; i++) {
+    if (mask[i] && (i / W | 0) < rawTop) rawTop = (i / W) | 0;
+    if (comp.filled[i] && (i / W | 0) < pendTop) pendTop = (i / W) | 0;
+  }
+  const hasChain = pendTop - rawTop > H * 0.16;
+
+  let contourPx = mooreTrace(comp.filled, W, H);
   if (contourPx.length < 12) return null;
 
   contourPx = rdp(contourPx, 1.6);
@@ -134,7 +147,7 @@ export async function extractContour(
   const heightMm = Math.round(bh * mmPerPx * 10) / 10;
 
   // 前景に囲まれた内部穴（くり抜き）を検出 → mm座標へ
-  const holes: DetectedHole[] = detectEnclosedHoles(comp.mask, W, H)
+  const holes: DetectedHole[] = detectEnclosedHoles(subjectMask, W, H)
     .filter((h) => h.area > Math.max(10, W * H * 0.0009))
     .map((h) => {
       const nx = (h.cx - cx) / bw;
@@ -149,7 +162,7 @@ export async function extractContour(
     });
 
   // 石の検出（前景内で金属色と異なる彩度の高い領域）
-  const stones: DetectedStone[] = detectStones(data, comp.mask, W, H)
+  const stones: DetectedStone[] = detectStones(data, subjectMask, W, H)
     .map((s) => ({
       xMm: Math.round(((s.cx - cx) / bw) * widthMm * 10) / 10,
       yMm: Math.round((-(s.cy - cy) / bh) * heightMm * 10) / 10,
@@ -159,7 +172,7 @@ export async function extractContour(
     .filter((s) => s.diameterMm >= 1.5 && s.diameterMm <= Math.max(widthMm, heightMm) * 0.6);
 
   // 上部の突起バチカン（くびれ→ループ）を検出
-  const bailPx = detectBail(comp.mask, W, H);
+  const bailPx = detectBail(subjectMask, W, H);
   const bail: DetectedBail | null = bailPx
     ? {
         xMm: Math.round(((bailPx.cx - cx) / bw) * widthMm * 10) / 10,
@@ -170,7 +183,7 @@ export async function extractContour(
     : null;
 
   // 立体レリーフ用の高さマップ（陰影=高さ）を外形bbox上のグリッドで抽出
-  const relief = extractRelief(data, comp.mask, W, H, minX, minY, bw, bh);
+  const relief = extractRelief(data, subjectMask, W, H, minX, minY, bw, bh);
 
   return {
     outline,
@@ -182,6 +195,7 @@ export async function extractContour(
     stones,
     bail,
     relief,
+    hasChain,
     correctedCorners,
     overlayPath,
     imgW: W,
@@ -610,6 +624,89 @@ function morphOpen(mask: Uint8Array, W: number, H: number): Uint8Array {
 /** close = dilate→erode（微小ピンホール埋め・縁の滑らか化） */
 function morphClose(mask: Uint8Array, W: number, H: number): Uint8Array {
   return erode3x3(dilate3x3(mask, W, H), W, H);
+}
+/** 半径rのclose（dilate×r → erode×r）。細線を保ちつつ密集部を塊化する前処理に使う */
+function morphCloseR(mask: Uint8Array, W: number, H: number, r: number): Uint8Array {
+  let m = mask;
+  for (let i = 0; i < r; i++) m = dilate3x3(m, W, H);
+  for (let i = 0; i < r; i++) m = erode3x3(m, W, H);
+  return m;
+}
+
+/** 単一成分マスクの内部穴を埋める（境界からの背景flood fillで到達しない背景=内部穴を前景化） */
+function fillHoles(comp: Uint8Array, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const seen = new Uint8Array(N);
+  const queue = new Int32Array(N);
+  let head = 0, tail = 0;
+  const seed = (i: number) => { if (!comp[i] && !seen[i]) { seen[i] = 1; queue[tail++] = i; } };
+  for (let x = 0; x < W; x++) { seed(x); seed((H - 1) * W + x); }
+  for (let y = 0; y < H; y++) { seed(y * W); seed(y * W + W - 1); }
+  while (head < tail) {
+    const p = queue[head++];
+    const x = p % W, y = (p / W) | 0;
+    if (x > 0) seed(p - 1);
+    if (x < W - 1) seed(p + 1);
+    if (y > 0) seed(p - W);
+    if (y < H - 1) seed(p + W);
+  }
+  const out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) out[i] = comp[i] || !seen[i] ? 1 : 0;
+  return out;
+}
+
+/**
+ * 「アクセサリー本体」の連結成分を選ぶ。最大面積ではなく
+ *   穴埋め後の面積 × 中央寄り × 密集度（bbox充填率）
+ * でスコアリングし、ネックレス画像の“細く広がったチェーン”ではなく
+ * “中央に密集したペンダント”を選ぶ。
+ * 返り値: filled=穴埋め後(外形トレース用) / unfilled=元の成分(内部穴・石検出用)。
+ */
+export function bestSubjectComponent(
+  mask: Uint8Array,
+  W: number,
+  H: number
+): { filled: Uint8Array; unfilled: Uint8Array; area: number } | null {
+  const N = W * H;
+  const label = new Int32Array(N);
+  const queue = new Int32Array(N);
+  const cx0 = W / 2, cy0 = H / 2;
+  const halfDiag = Math.sqrt(cx0 * cx0 + cy0 * cy0);
+  const minRaw = Math.max(20, N * 0.002);
+  let cur = 0, bestScore = 0, bestArea = 0;
+  let bestFilled: Uint8Array | null = null, bestUnfilled: Uint8Array | null = null;
+
+  for (let s = 0; s < N; s++) {
+    if (!mask[s] || label[s]) continue;
+    cur++;
+    let head = 0, tail = 0, area = 0, sx = 0, sy = 0, minx = W, maxx = 0, miny = H, maxy = 0;
+    queue[tail++] = s; label[s] = cur;
+    while (head < tail) {
+      const p = queue[head++];
+      area++;
+      const x = p % W, y = (p / W) | 0;
+      sx += x; sy += y;
+      if (x < minx) minx = x; if (x > maxx) maxx = x;
+      if (y < miny) miny = y; if (y > maxy) maxy = y;
+      if (x > 0 && mask[p - 1] && !label[p - 1]) { label[p - 1] = cur; queue[tail++] = p - 1; }
+      if (x < W - 1 && mask[p + 1] && !label[p + 1]) { label[p + 1] = cur; queue[tail++] = p + 1; }
+      if (y > 0 && mask[p - W] && !label[p - W]) { label[p - W] = cur; queue[tail++] = p - W; }
+      if (y < H - 1 && mask[p + W] && !label[p + W]) { label[p + W] = cur; queue[tail++] = p + W; }
+    }
+    if (area < minRaw) continue;
+    const comp = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (label[i] === cur) comp[i] = 1;
+    const filled = fillHoles(comp, W, H);
+    let fa = 0;
+    for (let i = 0; i < N; i++) fa += filled[i];
+    const bbw = maxx - minx + 1, bbh = maxy - miny + 1;
+    const density = fa / Math.max(1, bbw * bbh);
+    const prox = 1 - Math.sqrt((sx / area - cx0) ** 2 + (sy / area - cy0) ** 2) / halfDiag;
+    const score = fa * (0.3 + 0.7 * Math.max(0, prox)) * (0.4 + 0.6 * density);
+    if (score > bestScore) { bestScore = score; bestFilled = filled; bestUnfilled = comp; bestArea = fa; }
+  }
+  if (!bestFilled || !bestUnfilled) return null;
+  return { filled: bestFilled, unfilled: bestUnfilled, area: bestArea };
 }
 
 // ---------------------------------------------------------------------------
