@@ -5,40 +5,112 @@ import type {
   EarringsParams,
   GenericParams,
 } from '@/types/accessory';
-import { BuiltModel, BuiltPart } from './primitives';
+import { BuiltModel, BuiltPart, makeGem } from './primitives';
 
-/** ピアス（簡易）：本体プレート + ポスト/フック or フープ */
-export function buildEarrings(_design: AccessoryDesign, p: EarringsParams): BuiltModel {
+/** 角丸プレート（前面=+Z）。ピアス本体に使用 */
+function plateGeometry(w: number, h: number, t: number): THREE.BufferGeometry {
+  const s = new THREE.Shape();
+  const hw = w / 2, hh = h / 2, r = Math.min(hw, hh) * 0.5;
+  s.moveTo(-hw + r, -hh);
+  s.lineTo(hw - r, -hh);
+  s.quadraticCurveTo(hw, -hh, hw, -hh + r);
+  s.lineTo(hw, hh - r);
+  s.quadraticCurveTo(hw, hh, hw - r, hh);
+  s.lineTo(-hw + r, hh);
+  s.quadraticCurveTo(-hw, hh, -hw, hh - r);
+  s.lineTo(-hw, -hh + r);
+  s.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+  const g = new THREE.ExtrudeGeometry(s, { depth: t, bevelEnabled: true, bevelSize: 0.15, bevelThickness: 0.15, bevelSegments: 2, curveSegments: 24 });
+  g.translate(0, 0, -t / 2);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** フレンチフック（耳に通す釣り針状ワイヤー・前面XY平面） */
+function frenchHook(topY: number, wire: number): THREE.BufferGeometry {
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, topY, 0),
+    new THREE.Vector3(0.3, topY + 4, 0),
+    new THREE.Vector3(-1.6, topY + 9, 0),
+    new THREE.Vector3(-4.5, topY + 8.5, 0),
+    new THREE.Vector3(-5.2, topY + 4.5, 0),
+    new THREE.Vector3(-3.6, topY + 3, 0),
+  ]);
+  return new THREE.TubeGeometry(curve, 48, wire / 2, 10, false);
+}
+
+/** 宝石を本体前面に配置 */
+function pushStones(design: AccessoryDesign, t: number, parts: BuiltPart[]) {
+  design.stones.forEach((st, i) => {
+    const gem = makeGem(st.diameter, st.cut);
+    gem.rotateX(Math.PI / 2);
+    gem.translate(st.position.x, st.position.y, t / 2 + st.diameter * 0.15);
+    parts.push({ id: `stone-${i}`, geometry: gem, role: 'stone', color: st.color });
+  });
+}
+
+/**
+ * ピアス。スタイル別に上質な作り。
+ *   - stud : 角丸プレート + 背面ポスト + キャッチ（蝶バネ風ディスク）
+ *   - hook : フレンチフック + 揺れる本体プレート
+ *   - hoop : フープ（トーラス）
+ *   - drop : フレンチフック + 接続丸カン + ドロップ本体
+ */
+export function buildEarrings(design: AccessoryDesign, p: EarringsParams): BuiltModel {
   const parts: BuiltPart[] = [];
+  const wire = p.wireDiameter;
 
   if (p.style === 'hoop') {
     const r = p.hoopDiameter / 2;
-    const torus = new THREE.TorusGeometry(r, p.wireDiameter / 2, 16, 48);
+    const torus = new THREE.TorusGeometry(r, wire / 2, 18, 64);
     parts.push({ id: 'hoop', geometry: torus, role: 'metal', componentType: 'hoop' });
-    return { parts, bounds: { width: p.hoopDiameter, height: p.hoopDiameter, depth: p.wireDiameter } };
+    // フープにも石を載せられる
+    pushStones(design, wire, parts);
+    return { parts, bounds: { width: p.hoopDiameter, height: p.hoopDiameter, depth: p.hoopDiameter } };
   }
 
-  const body = new THREE.BoxGeometry(p.bodyWidth, p.bodyHeight, p.thickness);
-  parts.push({ id: 'stud', geometry: body, role: 'metal', componentType: 'stud' });
-
-  if (p.style === 'hook') {
-    const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, p.bodyHeight / 2, 0),
-      new THREE.Vector3(0, p.bodyHeight / 2 + 4, -3),
-      new THREE.Vector3(2, p.bodyHeight / 2 + 8, -2),
-      new THREE.Vector3(3, p.bodyHeight / 2 + 6, 1),
-    ]);
-    const hook = new THREE.TubeGeometry(curve, 32, p.wireDiameter / 2, 8, false);
-    parts.push({ id: 'hook', geometry: hook, role: 'metal', componentType: 'hook' });
-  } else {
-    // スタッド：背面ポスト
-    const post = new THREE.CylinderGeometry(p.wireDiameter / 2, p.wireDiameter / 2, 8, 12);
+  if (p.style === 'stud') {
+    const body = plateGeometry(p.bodyWidth, p.bodyHeight, p.thickness);
+    parts.push({ id: 'stud', geometry: body, role: 'metal', componentType: 'stud' });
+    // 背面ポスト
+    const post = new THREE.CylinderGeometry(wire / 2, wire / 2, 9, 14);
     post.rotateX(Math.PI / 2);
-    post.translate(0, 0, -4 - p.thickness / 2);
+    post.translate(0, 0, -4.5 - p.thickness / 2);
     parts.push({ id: 'post', geometry: post, role: 'metal', componentType: 'connector' });
+    // キャッチ（蝶バネ風の小ディスク）
+    const catchDisc = new THREE.CylinderGeometry(1.6, 1.6, 0.8, 16);
+    catchDisc.rotateX(Math.PI / 2);
+    catchDisc.translate(0, 0, -8 - p.thickness / 2);
+    parts.push({ id: 'catch', geometry: catchDisc, role: 'metal', componentType: 'connector' });
+    pushStones(design, p.thickness, parts);
+    return { parts, bounds: { width: p.bodyWidth, height: p.bodyHeight, depth: 9 } };
   }
 
-  return { parts, bounds: { width: p.bodyWidth, height: p.bodyHeight, depth: p.thickness } };
+  // hook / drop : フレンチフック + 本体
+  const bodyTopY = p.style === 'drop' ? -2 : p.bodyHeight / 2;
+  const hook = frenchHook(bodyTopY + (p.style === 'drop' ? p.bodyHeight + 2 : 0.5), wire);
+  parts.push({ id: 'hook', geometry: hook, role: 'metal', componentType: 'hook' });
+
+  let bodyGeo: THREE.BufferGeometry;
+  if (p.style === 'drop') {
+    // ドロップ（雫）: 楕円を縦に、上を細く
+    const s = new THREE.Shape();
+    const w = p.bodyWidth / 2, h = p.bodyHeight / 2;
+    s.moveTo(0, h * 1.1);
+    s.quadraticCurveTo(w, h * 0.2, w * 0.7, -h * 0.7);
+    s.quadraticCurveTo(0, -h * 1.1, -w * 0.7, -h * 0.7);
+    s.quadraticCurveTo(-w, h * 0.2, 0, h * 1.1);
+    bodyGeo = new THREE.ExtrudeGeometry(s, { depth: p.thickness, bevelEnabled: true, bevelSize: 0.15, bevelThickness: 0.15, bevelSegments: 2, curveSegments: 24 });
+    bodyGeo.translate(0, -p.bodyHeight / 2 - 2, -p.thickness / 2);
+  } else {
+    bodyGeo = plateGeometry(p.bodyWidth, p.bodyHeight, p.thickness);
+  }
+  bodyGeo.computeVertexNormals();
+  parts.push({ id: 'drop', geometry: bodyGeo, role: 'metal', componentType: p.style === 'drop' ? 'drop' : 'stud' });
+
+  pushStones(design, p.thickness, parts);
+  const h = p.bodyHeight + 12;
+  return { parts, bounds: { width: Math.max(p.bodyWidth, 10), height: h, depth: p.thickness } };
 }
 
 /** 円弧上に正しい向き（接線方向）でパーツを並べるためのジオメトリ配置ヘルパ */
