@@ -18,10 +18,11 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
   const components = design.components;
   const selectComponent = useDesignStore((s) => s.selectComponent);
   const moveStone = useDesignStore((s) => s.moveStone);
+  const moveHole = useDesignStore((s) => s.moveHole);
   const controls = useThree((s) => s.controls) as any;
 
-  // 石ドラッグ（ペンダントのみ）
-  const [drag, setDrag] = useState<{ index: number; z: number } | null>(null);
+  // 石/穴ドラッグ（ペンダントのみ）
+  const [drag, setDrag] = useState<{ kind: 'stone' | 'hole'; index: number; z: number } | null>(null);
   const firstMove = useRef(true);
   const params = design.params;
   const isPendant = params.kind === 'pendant';
@@ -110,7 +111,7 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
               onPointerDown={(e) => {
                 e.stopPropagation();
                 firstMove.current = true;
-                setDrag({ index: i, z });
+                setDrag({ kind: 'stone', index: i, z });
                 if (controls) controls.enabled = false;
                 document.body.style.cursor = 'grabbing';
               }}
@@ -120,6 +121,29 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
             </mesh>
           );
         })}
+
+      {/* 穴のドラッグ用 透明グラブハンドル（ペンダントのみ・吊り穴=bailは固定、装飾/機能穴のみ可動） */}
+      {isPendant &&
+        design.holes.map((h, i) =>
+          h.role === 'bail' ? null : (
+            <mesh
+              key={`hole-grab-${i}`}
+              position={[h.position.x, h.position.y, pt / 2 + 0.6]}
+              onPointerOver={() => { document.body.style.cursor = 'grab'; }}
+              onPointerOut={() => { if (!drag) document.body.style.cursor = 'auto'; }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                firstMove.current = true;
+                setDrag({ kind: 'hole', index: i, z: pt / 2 + 0.6 });
+                if (controls) controls.enabled = false;
+                document.body.style.cursor = 'grabbing';
+              }}
+            >
+              <sphereGeometry args={[Math.max(h.diameter * 0.7, 2), 12, 12]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+            </mesh>
+          ),
+        )}
 
       {/* 石ドラッグ用の透明キャッチャー（ドラッグ中のみ）。広い平面で確実にmoveを拾う */}
       {drag && (
@@ -131,7 +155,10 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
             if (e.ray.intersectPlane(plane, hit)) {
               const x = Math.max(-pw / 2 * 0.92, Math.min(pw / 2 * 0.92, hit.x));
               const y = Math.max(-ph / 2 * 0.92, Math.min(ph / 2 * 0.92, hit.y));
-              moveStone(drag.index, Math.round(x * 10) / 10, Math.round(y * 10) / 10, firstMove.current);
+              const rx = Math.round(x * 10) / 10;
+              const ry = Math.round(y * 10) / 10;
+              if (drag.kind === 'stone') moveStone(drag.index, rx, ry, firstMove.current);
+              else moveHole(drag.index, rx, ry, firstMove.current);
               firstMove.current = false;
             }
           }}
@@ -334,8 +361,9 @@ function ContextTip() {
   const p = design.params;
   let tip: string;
   if (p.kind === 'pendant') {
-    tip = design.stones.length > 0
-      ? '石はドラッグで動かせます。チャットで「石を大きく」もOK'
+    const draggable = design.stones.length > 0 || design.holes.some((h) => h.role !== 'bail');
+    tip = draggable
+      ? '石・装飾穴はドラッグで動かせます。チャットで「石を大きく」もOK'
       : '右で形・厚み・刻印を調整。チャットで「ルビーを入れて」もOK';
   } else if (p.kind === 'ring') {
     tip = '右で号数・断面・トップを調整。チャットで「13号にして」もOK';
