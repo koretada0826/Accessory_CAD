@@ -26,6 +26,14 @@ export interface DetectedHole {
   isTop: boolean;
 }
 
+export interface DetectedStone {
+  xMm: number;
+  yMm: number;
+  diameterMm: number;
+  /** 検出領域の平均色 */
+  color: string;
+}
+
 export interface ContourResult {
   /** 単位ボックス[-0.5,0.5]・y-up の正規化頂点列 */
   outline: { x: number; y: number }[];
@@ -35,6 +43,8 @@ export interface ContourResult {
   symmetryScore: number;
   /** 前景に囲まれた内部穴（くり抜き）。SVGの穴/ドーナツ等 */
   holes: DetectedHole[];
+  /** 検出した石（金属色と異なる彩度の高い領域） */
+  stones: DetectedStone[];
   /** 元画像に重ねる輪郭プレビュー（SVG path・処理座標系） */
   overlayPath: string;
   imgW: number;
@@ -118,6 +128,16 @@ export async function extractContour(
       };
     });
 
+  // 石の検出（前景内で金属色と異なる彩度の高い領域）
+  const stones: DetectedStone[] = detectStones(data, comp.mask, W, H)
+    .map((s) => ({
+      xMm: Math.round(((s.cx - cx) / bw) * widthMm * 10) / 10,
+      yMm: Math.round((-(s.cy - cy) / bh) * heightMm * 10) / 10,
+      diameterMm: Math.round(2 * Math.sqrt(s.area / Math.PI) * mmPerPx * 10) / 10,
+      color: s.color,
+    }))
+    .filter((s) => s.diameterMm >= 1.5 && s.diameterMm <= Math.max(widthMm, heightMm) * 0.6);
+
   return {
     outline,
     widthMm,
@@ -125,12 +145,74 @@ export async function extractContour(
     symmetric,
     symmetryScore: Math.round(symmetryScore * 100) / 100,
     holes,
+    stones,
     overlayPath,
     imgW: W,
     imgH: H,
     usedAlpha,
     pointCount: outline.length,
   };
+}
+
+/**
+ * 石の検出。前景の代表色（金属）を推定し、そこから色が離れていて彩度が高い画素を
+ * 石候補とみなす。連結成分にまとめ、面積上位を返す。
+ * ※ 透明/白の石(低彩度)は誤検出を避けるため対象外（色石を確実に拾う保守的版）。
+ */
+function detectStones(
+  data: Uint8ClampedArray,
+  comp: Uint8Array,
+  W: number,
+  H: number
+): { cx: number; cy: number; area: number; color: string }[] {
+  const N = W * H;
+  // 前景の平均色（金属）
+  let mr = 0, mg = 0, mb = 0, cnt = 0;
+  for (let i = 0; i < N; i++) {
+    if (comp[i]) { mr += data[i * 4]; mg += data[i * 4 + 1]; mb += data[i * 4 + 2]; cnt++; }
+  }
+  if (cnt === 0) return [];
+  mr /= cnt; mg /= cnt; mb /= cnt;
+
+  // 石候補マスク: 彩度が高く、金属色から離れている
+  const stoneMask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (!comp[i]) continue;
+    const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    const sat = mx === 0 ? 0 : (mx - mn) / mx;
+    const dist = Math.hypot(r - mr, g - mg, b - mb);
+    if (sat > 0.35 && dist > 60) stoneMask[i] = 1;
+  }
+  // スペック除去
+  const cleaned = morphOpen(stoneMask, W, H);
+
+  // 連結成分
+  const label = new Int32Array(N);
+  const queue = new Int32Array(N);
+  const out: { cx: number; cy: number; area: number; color: string }[] = [];
+  let cur = 0;
+  const minArea = Math.max(12, N * 0.001);
+  for (let s = 0; s < N; s++) {
+    if (!cleaned[s] || label[s]) continue;
+    cur++;
+    let h = 0, t = 0, area = 0, sx = 0, sy = 0, sr = 0, sg = 0, sb = 0;
+    queue[t++] = s; label[s] = cur;
+    while (h < t) {
+      const p = queue[h++];
+      area++; sx += p % W; sy += (p / W) | 0;
+      sr += data[p * 4]; sg += data[p * 4 + 1]; sb += data[p * 4 + 2];
+      const x = p % W, y = (p / W) | 0;
+      const nb = [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, y > 0 ? p - W : -1, y < H - 1 ? p + W : -1];
+      for (const q of nb) if (q >= 0 && cleaned[q] && !label[q]) { label[q] = cur; queue[t++] = q; }
+    }
+    if (area >= minArea) {
+      const hex = '#' + [sr, sg, sb].map((v) => Math.round(v / area).toString(16).padStart(2, '0')).join('');
+      out.push({ cx: sx / area, cy: sy / area, area, color: hex });
+    }
+  }
+  // 面積上位5個
+  return out.sort((a, b) => b.area - a.area).slice(0, 5);
 }
 
 /**

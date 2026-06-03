@@ -75,6 +75,19 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
         }
         // 上部の穴があれば、それを吊り穴として使う（合成バチカンは無効化）
         if (topHole) design.params.bail.type = 'none';
+
+        // 検出した石を反映
+        for (const st of contour.stones) {
+          design.stones.push({
+            id: nanoid(8),
+            cut: 'round',
+            setting: 'bezel',
+            diameter: st.diameterMm,
+            position: { x: st.xMm, y: st.yMm },
+            height: st.diameterMm * 0.4,
+            color: st.color,
+          });
+        }
       }
 
       features.push(`輪郭 ${contour.pointCount}点を抽出${contour.usedAlpha ? '（透過PNG）' : ''}`);
@@ -85,6 +98,9 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
         features.push(`内部穴 ${contour.holes.length}個を検出${topHole ? '（上部を吊り穴と判定）' : ''}`);
       } else {
         features.push('上部に吊り穴を自動配置');
+      }
+      if (contour.stones.length > 0) {
+        features.push(`石 ${contour.stones.length}個を検出（色・位置・サイズを推定）`);
       }
 
       return {
