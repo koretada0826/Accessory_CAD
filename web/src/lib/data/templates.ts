@@ -10,22 +10,229 @@ export interface Template {
   build: () => AccessoryDesign;
 }
 
-/** スターターテンプレート（プリセット） */
+// リアルで上質な宝石色（くすませず深く）
+const GEM = {
+  diamond: '#eef6ff',
+  onyx: '#141417',
+  emerald: '#0f7a52',
+  sapphire: '#1c44b0',
+  ruby: '#b01235',
+  champagne: '#d9c189',
+  pearl: '#f3ece0',
+};
+
+const stone = (cut: string, diameter: number, color: string, setting = 'prong') => ({
+  id: nanoid(8),
+  cut: cut as any,
+  setting: setting as any,
+  diameter,
+  position: { x: 0, y: 0 },
+  height: diameter * 0.45,
+  color,
+});
+
+/**
+ * 看板＝最初に表示する華のあるシグネチャー。
+ * ホワイトゴールドのソリティア（大粒ダイヤ＋ミル打ち＋ギャラリー＋肩のメレ）。
+ */
+export function signatureHero(): AccessoryDesign {
+  const d = createDesign('stone_ring', 'Solitaire — ソリティア');
+  if (d.params.kind === 'ring') {
+    d.params.top = { type: 'stone', width: 6, length: 6, height: 4 };
+    d.params.bandWidth = 2.3;
+    d.params.bandThickness = 1.8;
+    d.params.profile = 'comfort';
+    d.params.milgrain = true;
+  }
+  d.materialId = 'gold_white';
+  d.stones.push(stone('round', 5.6, GEM.diamond, 'prong'));
+  d.meta.origin = 'template';
+  return d;
+}
+
+/** スターターテンプレート（シグネチャー優先・欲しくなる順） */
 export const TEMPLATES: Template[] = [
   {
-    id: 'tpl-disc-pendant',
-    name: 'コインペンダント',
-    category: 'pendant',
-    emoji: '🪙',
+    id: 'tpl-solitaire',
+    name: 'ソリティア（ダイヤ）',
+    category: 'stone_ring',
+    emoji: '💍',
+    build: signatureHero,
+  },
+  {
+    id: 'tpl-mode-signet',
+    name: 'モード シグネット',
+    category: 'signet',
+    emoji: '🛡️',
     build: () => {
-      const d = createDesign('pendant', 'コインペンダント');
+      const d = createDesign('signet', 'モード シグネット');
+      if (d.params.kind === 'ring') {
+        d.params.top = { type: 'signet', width: 12, length: 14, height: 3.2 };
+        d.params.bandWidth = 4;
+        d.params.bandThickness = 2;
+        d.params.profile = 'flat';
+      }
+      d.materialId = 'gold_yellow';
+      d.engraving.push({ id: nanoid(8), text: 'A', size: 7, depth: -0.6, position: { x: 0, y: 0 }, font: 'serif' });
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-onyx-hexa',
+    name: 'オニキス ヘキサ',
+    category: 'pendant',
+    emoji: '⬡',
+    build: () => {
+      const d = createDesign('pendant', 'オニキス ヘキサ');
       if (d.params.kind === 'pendant') {
-        d.params.shape = 'disc';
-        d.params.width = 20;
+        d.params.shape = 'hexagon';
+        d.params.width = 18;
+        d.params.height = 20;
+        d.params.thickness = 2;
+        d.params.cornerRadius = 0;
+      }
+      d.materialId = 'gold_yellow';
+      d.stones.push(stone('cabochon', 8, GEM.onyx, 'bezel'));
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-milgrain-band',
+    name: 'ミルグレイン バンド',
+    category: 'ring',
+    emoji: '💍',
+    build: () => {
+      const d = createDesign('ring', 'ミルグレイン バンド');
+      if (d.params.kind === 'ring') {
+        d.params.profile = 'flat';
+        d.params.bandWidth = 3.6;
+        d.params.bandThickness = 1.8;
+        d.params.innerDiameter = 17.0;
+        d.params.milgrain = true;
+      }
+      d.materialId = 'platinum';
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-ear-cuff',
+    name: 'モダン イヤーカフ',
+    category: 'earcuff',
+    emoji: '🌙',
+    build: () => {
+      const d = createDesign('earcuff', 'モダン イヤーカフ');
+      d.materialId = 'gold_yellow';
+      d.stones.push(stone('round', 3, GEM.champagne, 'bezel'));
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-baguette-drop',
+    name: 'バゲット ドロップ',
+    category: 'earrings',
+    emoji: '💎',
+    build: () => {
+      const d = createDesign('earrings', 'バゲット ドロップ');
+      if (d.params.kind === 'earrings') {
+        d.params.style = 'drop';
+        d.params.bodyWidth = 7;
+        d.params.bodyHeight = 13;
+      }
+      d.materialId = 'gold_white';
+      d.stones.push(stone('emerald', 5, GEM.diamond, 'bezel'));
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-emerald-pendant',
+    name: 'エメラルド ペンダント',
+    category: 'pendant',
+    emoji: '🟢',
+    build: () => {
+      const d = createDesign('pendant', 'エメラルド ペンダント');
+      if (d.params.kind === 'pendant') {
+        d.params.shape = 'oval';
+        d.params.width = 14;
         d.params.height = 20;
         d.params.thickness = 1.8;
       }
       d.materialId = 'gold_yellow';
+      d.stones.push(stone('emerald', 6, GEM.emerald, 'prong'));
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-three-stone',
+    name: '三石リング',
+    category: 'stone_ring',
+    emoji: '🔱',
+    build: () => {
+      const d = createDesign('stone_ring', '三石リング');
+      if (d.params.kind === 'ring') {
+        d.params.top = { type: 'stone', width: 8, length: 6, height: 3 };
+        d.params.bandWidth = 2.4;
+        d.params.milgrain = true;
+      }
+      d.materialId = 'platinum';
+      d.stones.push(
+        stone('round', 4.5, GEM.diamond, 'prong'),
+        stone('round', 2.8, GEM.diamond, 'prong'),
+        stone('round', 2.8, GEM.diamond, 'prong'),
+      );
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-disc-pendant',
+    name: 'コイン ペンダント',
+    category: 'pendant',
+    emoji: '🪙',
+    build: () => {
+      const d = createDesign('pendant', 'コイン ペンダント');
+      if (d.params.kind === 'pendant') {
+        d.params.shape = 'disc';
+        d.params.width = 20;
+        d.params.height = 20;
+        d.params.thickness = 2;
+      }
+      d.materialId = 'gold_yellow';
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-hoop',
+    name: 'フープ ピアス',
+    category: 'hoop',
+    emoji: '⭕',
+    build: () => {
+      const d = createDesign('hoop', 'フープ ピアス');
+      d.materialId = 'gold_yellow';
+      d.meta.origin = 'template';
+      return d;
+    },
+  },
+  {
+    id: 'tpl-pearl-stud',
+    name: 'パール スタッド',
+    category: 'earrings',
+    emoji: '🫧',
+    build: () => {
+      const d = createDesign('earrings', 'パール スタッド');
+      if (d.params.kind === 'earrings') {
+        d.params.style = 'stud';
+        d.params.bodyWidth = 6;
+        d.params.bodyHeight = 6;
+      }
+      d.materialId = 'gold_yellow';
+      d.stones.push(stone('cabochon', 6, GEM.pearl, 'bezel'));
       d.meta.origin = 'template';
       return d;
     },
@@ -41,207 +248,26 @@ export const TEMPLATES: Template[] = [
         d.params.shape = 'tag';
         d.params.width = 16;
         d.params.height = 28;
-        d.params.thickness = 1.6;
+        d.params.thickness = 1.8;
       }
-      d.engraving.push({
-        id: nanoid(8),
-        text: 'LOVE',
-        size: 4,
-        depth: -0.4,
-        position: { x: 0, y: 0 },
-        font: 'serif',
-      });
+      d.materialId = 'steel';
+      d.engraving.push({ id: nanoid(8), text: 'ATELIER', size: 3, depth: -0.4, position: { x: 0, y: 0 }, font: 'sans' });
       d.meta.origin = 'template';
       return d;
     },
   },
   {
-    id: 'tpl-comfort-band',
-    name: '甲丸バンドリング',
-    category: 'ring',
-    emoji: '💍',
-    build: () => {
-      const d = createDesign('ring', '甲丸バンドリング');
-      if (d.params.kind === 'ring') {
-        d.params.profile = 'comfort';
-        d.params.bandWidth = 3.5;
-        d.params.bandThickness = 1.8;
-        d.params.innerDiameter = 17.0;
-      }
-      d.materialId = 'platinum';
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-signet',
-    name: 'シグネットリング',
+    id: 'tpl-signet-onyx',
+    name: 'シグネット（オニキス）',
     category: 'signet',
     emoji: '🛡️',
     build: () => {
-      const d = createDesign('signet', 'シグネットリング');
+      const d = createDesign('signet', 'シグネット オニキス');
       if (d.params.kind === 'ring') {
-        d.params.top = { type: 'signet', width: 11, length: 13, height: 2.6 };
-        d.params.bandWidth = 3;
-      }
-      d.materialId = 'gold_yellow';
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-stone-ring',
-    name: '一粒ストーンリング',
-    category: 'stone_ring',
-    emoji: '✨',
-    build: () => {
-      const d = createDesign('stone_ring', '一粒ストーンリング');
-      if (d.params.kind === 'ring') {
-        d.params.top = { type: 'stone', width: 6, length: 6, height: 3 };
-        d.params.bandWidth = 2.2;
-      }
-      d.stones.push({
-        id: nanoid(8),
-        cut: 'round',
-        setting: 'prong',
-        diameter: 4,
-        position: { x: 0, y: 0 },
-        height: 2.2,
-        color: '#bfe9ff',
-      });
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-hoop',
-    name: 'フープピアス',
-    category: 'hoop',
-    emoji: '⭕',
-    build: () => {
-      const d = createDesign('hoop', 'フープピアス');
-      d.materialId = 'gold_yellow';
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-plate-bracelet',
-    name: 'プレートブレスレット',
-    category: 'bracelet',
-    emoji: '🔗',
-    build: () => {
-      const d = createDesign('bracelet', 'プレートブレスレット');
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-heart-ruby',
-    name: 'ハート×ルビー',
-    category: 'pendant',
-    emoji: '❤️',
-    build: () => {
-      const d = createDesign('pendant', 'ハートペンダント');
-      if (d.params.kind === 'pendant') {
-        d.params.shape = 'heart';
-        d.params.width = 20;
-        d.params.height = 19;
-      }
-      d.materialId = 'gold_yellow';
-      d.stones.push({ id: nanoid(8), cut: 'round', setting: 'bezel', diameter: 4, position: { x: 0, y: -1 }, height: 2, color: '#e0234e' });
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-initial-tag',
-    name: 'イニシャル刻印',
-    category: 'pendant',
-    emoji: '🔤',
-    build: () => {
-      const d = createDesign('pendant', 'イニシャルペンダント');
-      if (d.params.kind === 'pendant') {
-        d.params.shape = 'disc';
-        d.params.width = 16;
-        d.params.height = 16;
+        d.params.top = { type: 'signet', width: 11, length: 13, height: 2.8 };
+        d.params.bandWidth = 3.6;
       }
       d.materialId = 'gold_white';
-      d.engraving.push({ id: nanoid(8), text: 'A', size: 8, depth: -0.5, position: { x: 0, y: 0 }, font: 'serif' });
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-hook-diamond',
-    name: '一粒フックピアス',
-    category: 'earrings',
-    emoji: '💎',
-    build: () => {
-      const d = createDesign('earrings', 'フックピアス');
-      if (d.params.kind === 'earrings') {
-        d.params.style = 'hook';
-        d.params.bodyWidth = 7;
-        d.params.bodyHeight = 7;
-      }
-      d.materialId = 'platinum';
-      d.stones.push({ id: nanoid(8), cut: 'round', setting: 'bezel', diameter: 4, position: { x: 0, y: 0 }, height: 2, color: '#eaf6ff' });
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-pearl-stud',
-    name: 'パールスタッド',
-    category: 'earrings',
-    emoji: '🫧',
-    build: () => {
-      const d = createDesign('earrings', 'パールスタッド');
-      if (d.params.kind === 'earrings') {
-        d.params.style = 'stud';
-        d.params.bodyWidth = 6;
-        d.params.bodyHeight = 6;
-      }
-      d.materialId = 'gold_yellow';
-      d.stones.push({ id: nanoid(8), cut: 'cabochon', setting: 'bezel', diameter: 5, position: { x: 0, y: 0 }, height: 2.5, color: '#f3eee4' });
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-drop-earring',
-    name: 'ドロップピアス',
-    category: 'earrings',
-    emoji: '💧',
-    build: () => {
-      const d = createDesign('earrings', 'ドロップピアス');
-      if (d.params.kind === 'earrings') {
-        d.params.style = 'drop';
-        d.params.bodyWidth = 8;
-        d.params.bodyHeight = 12;
-      }
-      d.materialId = 'gold_rose';
-      d.meta.origin = 'template';
-      return d;
-    },
-  },
-  {
-    id: 'tpl-three-stone',
-    name: '三石リング',
-    category: 'stone_ring',
-    emoji: '🔱',
-    build: () => {
-      const d = createDesign('stone_ring', '三石リング');
-      if (d.params.kind === 'ring') {
-        d.params.top = { type: 'stone', width: 8, length: 6, height: 3 };
-        d.params.bandWidth = 2.4;
-      }
-      d.materialId = 'platinum';
-      d.stones.push(
-        { id: nanoid(8), cut: 'round', setting: 'prong', diameter: 4, position: { x: 0, y: 0 }, height: 2, color: '#bfe9ff' },
-        { id: nanoid(8), cut: 'round', setting: 'prong', diameter: 2.5, position: { x: 0, y: 0 }, height: 1.4, color: '#eaf6ff' },
-        { id: nanoid(8), cut: 'round', setting: 'prong', diameter: 2.5, position: { x: 0, y: 0 }, height: 1.4, color: '#eaf6ff' },
-      );
       d.meta.origin = 'template';
       return d;
     },

@@ -5,6 +5,7 @@ import { runManufacturingCheck, ManufacturingReport } from '@/lib/manufacturing/
 import { applyChatEdit } from '@/lib/ai/chatEdit';
 import { analyzeImage, AnalyzeResult } from '@/lib/ai/analyzeImage';
 import type { Template } from '@/lib/data/templates';
+import { signatureHero } from '@/lib/data/templates';
 import { randomizeDesign } from '@/lib/data/randomize';
 
 /** UIモード: simple=小学生でも迷わない / pro=数値を全開放 */
@@ -66,7 +67,8 @@ function withReport(design: AccessoryDesign): { design: AccessoryDesign; report:
   return { design: next, report };
 }
 
-const initial = createDesign('ring', 'はじめてのリング');
+// 初回表示は質素なバンドではなく、華のあるシグネチャー（ソリティア）で第一印象を強く
+const initial = signatureHero();
 
 export const useDesignStore = create<DesignState>((set, get) => ({
   ...withReport(initial),
