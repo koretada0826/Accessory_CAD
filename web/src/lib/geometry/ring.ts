@@ -80,8 +80,9 @@ export function buildRing(design: AccessoryDesign, p: RingParams): BuiltModel {
     const d = main?.diameter ?? Math.min(p.top.width, p.top.length, 5);
     const seatY = topBaseY + 0.2;
 
+    const setting = main?.setting ?? 'prong';
     // ベゼル/プロングの簡易表現
-    if ((main?.setting ?? 'prong') === 'bezel') {
+    if (setting === 'bezel') {
       const bezel = new THREE.CylinderGeometry(d / 2 + 0.6, d / 2 + 0.6, d * 0.45, 24);
       bezel.translate(0, seatY + d * 0.2, 0);
       parts.push({ id: 'bezel', geometry: bezel, role: 'metal', componentType: 'bezel' });
@@ -92,6 +93,28 @@ export function buildRing(design: AccessoryDesign, p: RingParams): BuiltModel {
         const prong = new THREE.CylinderGeometry(0.35, 0.45, d * 0.7, 8);
         prong.translate((d / 2) * Math.cos(a), seatY + d * 0.25, (d / 2) * Math.sin(a));
         parts.push({ id: `prong-${i}`, geometry: prong, role: 'metal', componentType: 'prongs' });
+      }
+    }
+
+    // --- ギャラリー（石座下の精密化）: アンダーベゼル・レール + ガラリー・ワイヤー ---
+    // 石のガードル直下に細い輪（アンダーベゼル）を回し、座とバンドを数本のワイヤーで繋ぐ。
+    {
+      const railR = d / 2 + (setting === 'bezel' ? 0.55 : 0.25);
+      const railY = seatY + d * 0.05;
+      const rail = new THREE.TorusGeometry(railR, 0.22, 10, 28);
+      rail.rotateX(Math.PI / 2); // リング面を水平（XZ）に
+      rail.translate(0, railY, 0);
+      parts.push({ id: 'gallery-rail', geometry: rail, role: 'metal', componentType: 'gallery' });
+
+      // 座→バンド上端を繋ぐワイヤー（前後左右の4本）
+      const wireTop = railY;
+      const wireBot = topBaseY - 0.2;
+      const wh = Math.max(0.4, wireTop - wireBot);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        const wire = new THREE.CylinderGeometry(0.2, 0.24, wh, 6);
+        wire.translate(railR * 0.8 * Math.cos(a), (wireTop + wireBot) / 2, railR * 0.8 * Math.sin(a));
+        parts.push({ id: `gallery-wire-${i}`, geometry: wire, role: 'metal', componentType: 'gallery' });
       }
     }
 
@@ -107,6 +130,33 @@ export function buildRing(design: AccessoryDesign, p: RingParams): BuiltModel {
       const offset = (i % 2 === 0 ? 1 : -1) * (d / 2 + st.diameter);
       g.translate(offset, seatY + st.diameter * 0.4, 0);
       parts.push({ id: `stone-${i}`, geometry: g, role: 'stone', color: st.color });
+    }
+
+    // --- メレ（ショルダーのパヴェ留め）: ソリティア時のみ、両肩に小石を配置 ---
+    // バンド上部の弧に沿って外面へ小石を埋め込み、ビーズ状の小さな爪で留める。
+    if (stones.length <= 1 && d >= 2.6) {
+      const angles = [18, 33, 48]; // 度: 天頂(+Y)からの開き
+      const color = main?.color ?? '#dfe9f5';
+      angles.forEach((deg, k) => {
+        const th = (deg * Math.PI) / 180;
+        const md = Math.max(0.8, d * (0.24 - k * 0.045)); // 上ほど大きく
+        for (const s of [-1, 1]) {
+          const sx = Math.sin(th) * s;
+          const cy = Math.cos(th);
+          const r = outerR + md * 0.15; // バンド外面にわずかに乗せる
+          const mg = makeGem(md, 'round');
+          mg.translate(sx * r, cy * r, 0);
+          parts.push({ id: `melee-${k}-${s > 0 ? 'r' : 'l'}`, geometry: mg, role: 'stone', color });
+          // ビーズ爪（小さな金属球）を石の左右に
+          for (const bs of [-1, 1]) {
+            const bead = new THREE.SphereGeometry(0.22, 6, 6);
+            const bx = sx * r + bs * md * 0.5 * Math.cos(th);
+            const by = cy * r - bs * md * 0.5 * Math.sin(th) * s;
+            bead.translate(bx, by, md * 0.25);
+            parts.push({ id: `melee-bead-${k}-${s}-${bs}`, geometry: bead, role: 'metal', componentType: 'prongs' });
+          }
+        }
+      });
     }
   }
 

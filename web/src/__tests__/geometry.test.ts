@@ -33,6 +33,20 @@ describe('geometry.buildModel', () => {
     expect(model.parts.length).toBeGreaterThan(0);
   });
 
+  it('ストーンリングはギャラリー＋メレ留めを生成する（座標は有限）', () => {
+    const d = createDesign('stone_ring');
+    const model = buildModel(d);
+    const ids = model.parts.map((p) => p.id);
+    expect(ids.some((id) => id.startsWith('gallery'))).toBe(true);
+    expect(ids.some((id) => id.startsWith('melee'))).toBe(true);
+    for (const part of model.parts) {
+      const pos = part.geometry.getAttribute('position');
+      for (let i = 0; i < Math.min(pos.count, 30); i++) {
+        expect(Number.isFinite(pos.getX(i)) && Number.isFinite(pos.getY(i)) && Number.isFinite(pos.getZ(i))).toBe(true);
+      }
+    }
+  });
+
   it('estimateVolumeMm3 は正の体積を返す', () => {
     for (const c of CATS) {
       expect(estimateVolumeMm3(createDesign(c))).toBeGreaterThan(0);
