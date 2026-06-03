@@ -261,6 +261,16 @@ def _pendant(p, stones=None, engraving=None) -> "cq.Workplane":  # type: ignore
         wp = cq.Workplane("XY").rect(w, h)
     body = wp.extrude(t)
 
+    # 内側くり抜き（オープンフレーム）: 内側ポリゴンを押し出して差し引く
+    inner = p.get("innerCutout")
+    if inner and len(inner) >= 3:
+        try:
+            ipoly = [(pt["x"] * w, pt["y"] * h) for pt in inner]
+            cut = cq.Workplane("XY").polyline(ipoly).close().extrude(t + 1).translate((0, 0, -0.5))
+            body = body.cut(cut)
+        except Exception:
+            pass
+
     bail = p.get("bail", {})
     if bail.get("type") == "integrated_hole":
         d = bail.get("innerDiameter", 3)
