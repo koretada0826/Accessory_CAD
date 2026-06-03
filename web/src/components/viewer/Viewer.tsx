@@ -296,9 +296,36 @@ export default function Viewer() {
         <OrbitControls makeDefault enableDamping dampingFactor={0.1} minDistance={5} maxDistance={400} />
       </Canvas>
 
+      <ContextTip />
+
       <div className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-ink-900/70 px-2 py-1 text-[10px] text-ink-500">
         ドラッグ=回転 / ホイール=ズーム / 右ドラッグ=パン ・ パーツをクリックで選択
       </div>
+    </div>
+  );
+}
+
+/** 状況に応じた使い方ヒント（初心者向け・押し付けない短い一言） */
+function ContextTip() {
+  const design = useDesignStore((s) => s.design);
+  const p = design.params;
+  let tip: string;
+  if (p.kind === 'pendant') {
+    tip = design.stones.length > 0
+      ? '石はドラッグで動かせます。チャットで「石を大きく」もOK'
+      : '右で形・厚み・刻印を調整。チャットで「ルビーを入れて」もOK';
+  } else if (p.kind === 'ring') {
+    tip = '右で号数・断面・トップを調整。チャットで「13号にして」もOK';
+  } else if (p.kind === 'earrings') {
+    tip = '右でスタイル（スタッド/フック/フープ/ドロップ）と石を選べます';
+  } else if (p.kind === 'bracelet') {
+    tip = '右で内周・プレート幅・リンク数を調整できます';
+  } else {
+    tip = '右パネルで寸法を調整できます';
+  }
+  return (
+    <div className="pointer-events-none absolute bottom-3 left-3 max-w-[60%] rounded-md bg-gold-500/10 px-2.5 py-1 text-[10px] text-gold-400 ring-1 ring-gold-500/20">
+      💡 {tip}
     </div>
   );
 }

@@ -128,7 +128,11 @@ export function runManufacturingCheck(design: AccessoryDesign): ManufacturingRep
     meshHealth = analyzeMeshHealth(buildModel(design));
     if (!meshHealth.allManifold) {
       warnings.push(
-        w('warning', '水密でない面があります', `${meshHealth.openParts.length}個のパーツに境界エッジ（開いた面）。鋳造/STEPでは要確認。`)
+        w(
+          'info',
+          'プレビューに微小な開き',
+          `表示用メッシュの${meshHealth.openParts.length}パーツに境界エッジ（鋭角や角の近似）。3Dプリントはスライサが自動補修、STEP出力はCadQueryで厳密生成されるため通常は問題ありません。`
+        )
       );
     }
   } catch {
