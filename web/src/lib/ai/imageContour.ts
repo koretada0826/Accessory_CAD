@@ -45,6 +45,8 @@ export interface ContourResult {
   holes: DetectedHole[];
   /** 検出した石（金属色と異なる彩度の高い領域） */
   stones: DetectedStone[];
+  /** 製造可能性のため面取りした鋭利な角の数 */
+  correctedCorners: number;
   /** 元画像に重ねる輪郭プレビュー（SVG path・処理座標系） */
   overlayPath: string;
   imgW: number;
@@ -78,6 +80,10 @@ export async function extractContour(
   if (contourPx.length < 12) return null;
 
   contourPx = rdp(contourPx, 1.6);
+  // 製造可能性: 針のように鋭利な角（鋳造で脆く危険）を面取り
+  const softened = softenNeedles(contourPx);
+  contourPx = softened.pts;
+  const correctedCorners = softened.count;
   contourPx = resample(contourPx, 140);
   contourPx = smooth(contourPx, 1);
   if (contourPx.length < 8) return null;
@@ -146,6 +152,7 @@ export async function extractContour(
     symmetryScore: Math.round(symmetryScore * 100) / 100,
     holes,
     stones,
+    correctedCorners,
     overlayPath,
     imgW: W,
     imgH: H,
@@ -489,6 +496,40 @@ function perpDist(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x, dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
   return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / len;
+}
+
+// ---------------------------------------------------------------------------
+// 5.5 製造可能性: 鋭利な角（needle）の面取り
+// ---------------------------------------------------------------------------
+/** 内角が極端に小さい頂点（針状）を、両辺に沿った2点に置換して面取りする */
+function softenNeedles(pts: Pt[]): { pts: Pt[]; count: number } {
+  const n = pts.length;
+  if (n < 4) return { pts, count: 0 };
+  // bbox 対角長
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+  const diag = Math.hypot(maxX - minX, maxY - minY);
+  const d = diag * 0.025; // 面取り量
+  const THRESH = (28 * Math.PI) / 180; // 内角28°未満を「針」とみなす
+
+  const out: Pt[] = [];
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n], cur = pts[i], next = pts[(i + 1) % n];
+    const v1 = { x: prev.x - cur.x, y: prev.y - cur.y };
+    const v2 = { x: next.x - cur.x, y: next.y - cur.y };
+    const l1 = Math.hypot(v1.x, v1.y), l2 = Math.hypot(v2.x, v2.y);
+    const dot = (v1.x * v2.x + v1.y * v2.y) / (l1 * l2 || 1);
+    const ang = Math.acos(Math.max(-1, Math.min(1, dot)));
+    if (ang < THRESH && l1 > d * 1.5 && l2 > d * 1.5) {
+      count++;
+      out.push({ x: cur.x + (v1.x / l1) * d, y: cur.y + (v1.y / l1) * d });
+      out.push({ x: cur.x + (v2.x / l2) * d, y: cur.y + (v2.y / l2) * d });
+    } else {
+      out.push(cur);
+    }
+  }
+  return { pts: out, count };
 }
 
 // ---------------------------------------------------------------------------

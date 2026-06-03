@@ -102,6 +102,9 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
       if (contour.stones.length > 0) {
         features.push(`石 ${contour.stones.length}個を検出（色・位置・サイズを推定）`);
       }
+      if (contour.correctedCorners > 0) {
+        features.push(`鋭利な角 ${contour.correctedCorners}箇所を製造向けに面取り`);
+      }
 
       return {
         design,
