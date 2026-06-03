@@ -83,7 +83,9 @@ export function runManufacturingCheck(design: AccessoryDesign): ManufacturingRep
         );
       }
     }
-    if (p.bail.type === 'none') {
+    // 上部に穴があれば、それが吊り穴の役割（バチカン未設定の警告は出さない）
+    const hasTopHole = design.holes.some((h) => h.position.y > p.height * 0.2);
+    if (p.bail.type === 'none' && !hasTopHole) {
       warnings.push(w('info', 'バチカン未設定', 'このままでは吊るせません。吊り穴かバチカンを追加してください。', 'bail'));
     }
   }

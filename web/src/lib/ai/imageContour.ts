@@ -17,6 +17,15 @@
  *  以降も幅/高さ/厚みスライダーで編集できる（= メッシュ化ではなく構造化）。
  */
 
+export interface DetectedHole {
+  /** mm（中心・外形中心基準・y-up） */
+  xMm: number;
+  yMm: number;
+  diameterMm: number;
+  /** 上部にある＝吊り穴の可能性 */
+  isTop: boolean;
+}
+
 export interface ContourResult {
   /** 単位ボックス[-0.5,0.5]・y-up の正規化頂点列 */
   outline: { x: number; y: number }[];
@@ -24,6 +33,8 @@ export interface ContourResult {
   heightMm: number;
   symmetric: boolean;
   symmetryScore: number;
+  /** 前景に囲まれた内部穴（くり抜き）。SVGの穴/ドーナツ等 */
+  holes: DetectedHole[];
   /** 元画像に重ねる輪郭プレビュー（SVG path・処理座標系） */
   overlayPath: string;
   imgW: number;
@@ -86,18 +97,87 @@ export async function extractContour(
   }
 
   const mmPerPx = targetLongest / Math.max(bw, bh);
+  const widthMm = Math.round(bw * mmPerPx * 10) / 10;
+  const heightMm = Math.round(bh * mmPerPx * 10) / 10;
+
+  // 前景に囲まれた内部穴（くり抜き）を検出 → mm座標へ
+  const holes: DetectedHole[] = detectEnclosedHoles(comp.mask, W, H)
+    .filter((h) => h.area > Math.max(10, W * H * 0.0009))
+    .map((h) => {
+      const nx = (h.cx - cx) / bw;
+      const ny = -(h.cy - cy) / bh;
+      const isTop = h.cy < minY + bh * 0.32 && Math.abs(nx) < 0.25;
+      return {
+        xMm: Math.round(nx * widthMm * 10) / 10,
+        yMm: Math.round(ny * heightMm * 10) / 10,
+        diameterMm: Math.round(2 * Math.sqrt(h.area / Math.PI) * mmPerPx * 10) / 10,
+        isTop,
+      };
+    });
+
   return {
     outline,
-    widthMm: Math.round(bw * mmPerPx * 10) / 10,
-    heightMm: Math.round(bh * mmPerPx * 10) / 10,
+    widthMm,
+    heightMm,
     symmetric,
     symmetryScore: Math.round(symmetryScore * 100) / 100,
+    holes,
     overlayPath,
     imgW: W,
     imgH: H,
     usedAlpha,
     pointCount: outline.length,
   };
+}
+
+/**
+ * 前景blobに囲まれた背景領域（=内部穴）を検出。
+ * 補集合(blob外)を画像境界からflood fillし、到達しない背景画素＝囲まれた穴。
+ */
+function detectEnclosedHoles(comp: Uint8Array, W: number, H: number): { cx: number; cy: number; area: number }[] {
+  const N = W * H;
+  const visited = new Uint8Array(N); // 外側背景として到達済み
+  const queue = new Int32Array(N);
+  const isBg = (i: number) => comp[i] === 0;
+
+  // 画像境界の背景画素から外側背景を塗る
+  let head = 0, tail = 0;
+  const pushIf = (i: number) => {
+    if (isBg(i) && !visited[i]) {
+      visited[i] = 1;
+      queue[tail++] = i;
+    }
+  };
+  for (let x = 0; x < W; x++) { pushIf(x); pushIf((H - 1) * W + x); }
+  for (let y = 0; y < H; y++) { pushIf(y * W); pushIf(y * W + (W - 1)); }
+  while (head < tail) {
+    const p = queue[head++];
+    const x = p % W, y = (p / W) | 0;
+    if (x > 0) pushIf(p - 1);
+    if (x < W - 1) pushIf(p + 1);
+    if (y > 0) pushIf(p - W);
+    if (y < H - 1) pushIf(p + W);
+  }
+
+  // 残った背景画素（囲まれた穴）を連結成分にまとめる
+  const holeLabel = new Int32Array(N);
+  const holes: { cx: number; cy: number; area: number }[] = [];
+  let cur = 0;
+  for (let s = 0; s < N; s++) {
+    if (!isBg(s) || visited[s] || holeLabel[s]) continue;
+    cur++;
+    let h2 = 0, t2 = 0, area = 0, sx = 0, sy = 0;
+    queue[t2++] = s; holeLabel[s] = cur;
+    while (h2 < t2) {
+      const p = queue[h2++];
+      area++; sx += p % W; sy += (p / W) | 0;
+      const x = p % W, y = (p / W) | 0;
+      const nb = [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, y > 0 ? p - W : -1, y < H - 1 ? p + W : -1];
+      for (const q of nb) if (q >= 0 && isBg(q) && !visited[q] && !holeLabel[q]) { holeLabel[q] = cur; queue[t2++] = q; }
+    }
+    holes.push({ cx: sx / area, cy: sy / area, area });
+  }
+  return holes;
 }
 
 // ---------------------------------------------------------------------------

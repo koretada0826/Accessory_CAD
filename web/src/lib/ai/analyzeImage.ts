@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid';
 import type { AccessoryDesign, Category } from '@/types/accessory';
 import { createDesign } from '@/lib/data/factory';
 import { extractContour } from './imageContour';
@@ -61,12 +62,30 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
         design.params.thickness = 1.6;
         design.params.cornerRadius = 0;
         design.params.bail = { type: 'integrated_hole', innerDiameter: 3, wall: 1.6 };
+
+        // 検出した内部穴（くり抜き）を反映
+        const topHole = contour.holes.find((h) => h.isTop);
+        for (const h of contour.holes) {
+          design.holes.push({
+            id: nanoid(8),
+            role: 'decoration',
+            diameter: h.diameterMm,
+            position: { x: h.xMm, y: h.yMm },
+          });
+        }
+        // 上部の穴があれば、それを吊り穴として使う（合成バチカンは無効化）
+        if (topHole) design.params.bail.type = 'none';
       }
 
       features.push(`輪郭 ${contour.pointCount}点を抽出${contour.usedAlpha ? '（透過PNG）' : ''}`);
       features.push(`外形 ${contour.widthMm}×${contour.heightMm}mm を推定`);
       features.push(contour.symmetric ? `左右対称を検出（補正適用 / score ${contour.symmetryScore}）` : `非対称形状（score ${contour.symmetryScore}）`);
-      features.push('上部に吊り穴を自動配置');
+      if (contour.holes.length > 0) {
+        const topHole = contour.holes.find((h) => h.isTop);
+        features.push(`内部穴 ${contour.holes.length}個を検出${topHole ? '（上部を吊り穴と判定）' : ''}`);
+      } else {
+        features.push('上部に吊り穴を自動配置');
+      }
 
       return {
         design,
