@@ -156,3 +156,4 @@
 - 状態: 石光学/石座・パヴェ構造/金属揺らぎ/ライティングを実写寄りに。本番ビルド成功、26テスト合格。
 - fix(画像): 暗背景・ボケ写真で被写体切り出し失敗(→円盤)を修正。buildForegroundMaskを四隅依存から
   「背景の最頻輝度モードからの輝度距離＋Otsu」に切替(cornerVar/前景率が異常時)、largestComponentを中央寄り重み付きに。otsuThresholdにmaxVal引数。合成画像テスト追加。27テスト合格。
+- feat(画像構造化): ネックレス画像を全体1輪郭にせず「アクセサリー構造」として分解。前処理をclose(r3で密集塊化)→open(r1で細線除去)に、bestSubjectComponent(穴埋め後面積×中央寄り×密集度でスコア)で広がったチェーンでなく中央ペンダントを選択。filled=外形/unfilled=穴石検出に分離→中央の空洞をdecoration holeでboolean cut=オープンティアドロップ再現。hasChain検出でnecklace化(チェーンプレビュー)。円形度ガードでしずく/ハートのリング誤変換を防止。実画像でPython試作検証→TS移植。28テスト合格。
