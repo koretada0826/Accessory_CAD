@@ -46,7 +46,7 @@ export default function Page() {
               <Viewer />
             </ErrorBoundary>
           </div>
-          <div className="hairline-t glass h-52 shrink-0">
+          <div className="hairline-t glass shrink-0">
             <ErrorBoundary label="製造チェック" onReset={safeReset}>
               <ManufacturingPanel />
             </ErrorBoundary>
