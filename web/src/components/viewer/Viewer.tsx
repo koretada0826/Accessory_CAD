@@ -67,21 +67,26 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
         const highlighted = !!part.componentType && part.componentType === selectedType;
 
         if (part.role === 'stone') {
+          // 色の明度から石の性質を推定: 明るい=ダイヤ(高透過＋分散)、暗い=オニキス等(低透過・艶)
+          const col = new THREE.Color(part.color ?? '#eef6ff');
+          const lum = 0.299 * col.r + 0.587 * col.g + 0.114 * col.b;
+          const bright = lum > 0.55;
+          const transmission = bright ? 1.0 : lum > 0.2 ? 0.72 : 0.22;
           return (
             <mesh key={part.id} geometry={part.geometry}>
               <meshPhysicalMaterial
-                color={part.color ?? '#bfe9ff'}
+                color={part.color ?? '#eef6ff'}
                 metalness={0}
-                roughness={0.02}
-                transmission={0.85}
-                thickness={2.2}
-                ior={2.4}
-                reflectivity={1}
-                clearcoat={1}
-                clearcoatRoughness={0.02}
-                iridescence={0.3}
-                iridescenceIOR={1.8}
-                envMapIntensity={2.2}
+                roughness={0}
+                transmission={transmission}
+                thickness={2.4}
+                ior={2.42}
+                // 分散（ファイア）でダイヤらしい色の煌めき。発光ではなく屈折で輝かせる
+                dispersion={bright ? 0.32 : 0.06}
+                attenuationColor={part.color ?? '#ffffff'}
+                attenuationDistance={bright ? 8 : 1.6}
+                specularIntensity={1}
+                envMapIntensity={1.15}
                 side={THREE.DoubleSide}
                 wireframe={wireframe}
               />
@@ -296,7 +301,7 @@ export default function Viewer() {
         shadows
         dpr={[1, 2]}
         camera={{ fov: 30, position: [22, 16, 32] }}
-        gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
+        gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.92 }}
         resize={{ debounce: 0, scroll: false }}
         onCreated={(state) => state.gl.render(state.scene, state.camera)}
         onPointerMissed={() => useDesignStore.getState().selectComponent(null)}
@@ -324,16 +329,16 @@ export default function Viewer() {
             <planeGeometry args={[400, 400]} />
             <MeshReflectorMaterial
               resolution={1024}
-              mirror={0.55}
-              blur={[320, 110]}
-              mixBlur={1.1}
-              mixStrength={2.4}
-              roughness={0.85}
-              depthScale={1.1}
-              minDepthThreshold={0.4}
-              maxDepthThreshold={1.25}
-              color="#0a0a11"
-              metalness={0.5}
+              mirror={0.35}
+              blur={[400, 140]}
+              mixBlur={1.4}
+              mixStrength={1.4}
+              roughness={0.95}
+              depthScale={1.2}
+              minDepthThreshold={0.5}
+              maxDepthThreshold={1.4}
+              color="#08080d"
+              metalness={0.4}
             />
           </mesh>
         )}
@@ -381,9 +386,10 @@ export default function Viewer() {
             DoFは中央(原点)にフォーカスし背景をやわらかくぼかす（広告のような奥行き）。 */}
         {!wireframe && (
           <EffectComposer multisampling={4}>
-            <DepthOfField target={[0, 0, 0]} focalLength={0.025} bokehScale={3.2} height={480} />
-            <Bloom mipmapBlur intensity={0.42} luminanceThreshold={0.82} luminanceSmoothing={0.22} radius={0.6} />
-            <Vignette offset={0.3} darkness={0.62} eskil={false} />
+            <DepthOfField target={[0, 0, 0]} focalLength={0.02} bokehScale={2.4} height={480} />
+            {/* Bloomは“きらめきの芯”だけを拾う極控えめ設定（石を発光させない・白飛びさせない） */}
+            <Bloom mipmapBlur intensity={0.18} luminanceThreshold={0.95} luminanceSmoothing={0.12} radius={0.5} />
+            <Vignette offset={0.3} darkness={0.6} eskil={false} />
           </EffectComposer>
         )}
       </Canvas>
