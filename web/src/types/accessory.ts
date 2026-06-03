@@ -199,6 +199,10 @@ export interface RingParams {
   profile: RingProfile;
   /** ミル打ち（縁の粒飾り）を入れる高級仕上げ */
   milgrain?: boolean;
+  /** パヴェ留め（バンドに小粒石を並べる）。shoulder=肩のみ / full=エタニティ(全周) */
+  pave?: 'none' | 'shoulder' | 'full';
+  /** パヴェ石の色 */
+  paveColor?: string;
   top: {
     type: RingTopType;
     width: number;

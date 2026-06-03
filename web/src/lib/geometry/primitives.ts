@@ -247,12 +247,13 @@ export function makeGem(d: number, cut: string = 'round'): THREE.BufferGeometry 
  * 高級ジュエリーの象徴的な縁飾り。XY平面の半径 R・高さ z に粒を並べる。
  * 呼び出し側で必要に応じ回転・移動する。
  */
-export function makeMilgrain(R: number, z: number, beadR = 0.2): THREE.BufferGeometry {
-  const circumference = 2 * Math.PI * R;
-  const count = Math.max(16, Math.min(220, Math.round(circumference / (beadR * 2.1))));
+export function makeMilgrain(R: number, z: number, beadR = 0.2, a0 = 0, a1 = Math.PI * 2): THREE.BufferGeometry {
+  const span = a1 - a0;
+  const arcLen = Math.abs(span) * R;
+  const count = Math.max(6, Math.min(240, Math.round(arcLen / (beadR * 2.1))));
   const geos: THREE.BufferGeometry[] = [];
   for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2;
+    const a = a0 + (i / (count - (span < Math.PI * 1.99 ? 1 : 0))) * span;
     const b = new THREE.SphereGeometry(beadR, 7, 6);
     b.translate(Math.cos(a) * R, Math.sin(a) * R, z);
     geos.push(b);
@@ -260,6 +261,38 @@ export function makeMilgrain(R: number, z: number, beadR = 0.2): THREE.BufferGeo
   const merged = mergeGeometries(geos, false)!;
   merged.computeVertexNormals();
   return merged;
+}
+
+/**
+ * パヴェ／エタニティ留め: バンド外周の弧 [a0,a1] に小粒石を一列に並べ、
+ * 両縁にミル打ちレール（石を留める粒）を回す。XY平面・バンド軸=Z。
+ * 戻り値は {stones: gem geometries, rails: metal geometry}。
+ */
+export function makePave(
+  outerR: number,
+  bandWidth: number,
+  a0: number,
+  a1: number,
+): { stones: THREE.BufferGeometry[]; rails: THREE.BufferGeometry } {
+  const span = a1 - a0;
+  const sd = Math.min(bandWidth * 0.52, 1.7); // 小粒石径
+  const full = span >= Math.PI * 1.99;
+  const n = Math.max(5, Math.round((Math.abs(span) * (outerR + sd * 0.4)) / (sd * 1.18)));
+  const stones: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = full ? i / n : i / (n - 1);
+    const ang = a0 + t * span;
+    const gem = makeGem(sd, 'round');
+    gem.rotateZ(ang - Math.PI / 2); // テーブルを半径方向の外へ
+    gem.translate(Math.cos(ang) * (outerR - sd * 0.12), Math.sin(ang) * (outerR - sd * 0.12), 0);
+    stones.push(gem);
+  }
+  // 両縁のミル打ちレール（石座のビーズ）
+  const railZ = Math.min(bandWidth / 2 - 0.18, sd * 0.62);
+  const rail0 = makeMilgrain(outerR - 0.12, railZ, 0.17, a0, a1);
+  const rail1 = makeMilgrain(outerR - 0.12, -railZ, 0.17, a0, a1);
+  const rails = mergeGeometries([rail0, rail1], false)!;
+  return { stones, rails };
 }
 
 /**

@@ -36,16 +36,17 @@ const stone = (cut: string, diameter: number, color: string, setting = 'prong') 
  * ホワイトゴールドのソリティア（大粒ダイヤ＋ミル打ち＋ギャラリー＋肩のメレ）。
  */
 export function signatureHero(): AccessoryDesign {
-  const d = createDesign('stone_ring', 'Solitaire — ソリティア');
+  const d = createDesign('stone_ring', 'Solitaire Pavé — ソリティア');
   if (d.params.kind === 'ring') {
-    d.params.top = { type: 'stone', width: 6, length: 6, height: 4 };
-    d.params.bandWidth = 2.3;
-    d.params.bandThickness = 1.8;
+    d.params.top = { type: 'stone', width: 6, length: 6, height: 4.4 };
+    d.params.bandWidth = 2.6;
+    d.params.bandThickness = 1.9;
     d.params.profile = 'comfort';
-    d.params.milgrain = true;
+    d.params.pave = 'shoulder'; // 肩のパヴェ＝“高い”ジュエリーの記号
+    d.params.paveColor = GEM.diamond;
   }
   d.materialId = 'gold_white';
-  d.stones.push(stone('round', 5.6, GEM.diamond, 'prong'));
+  d.stones.push(stone('round', 6, GEM.diamond, 'prong'));
   d.meta.origin = 'template';
   return d;
 }
@@ -99,18 +100,20 @@ export const TEMPLATES: Template[] = [
     },
   },
   {
-    id: 'tpl-milgrain-band',
-    name: 'ミルグレイン バンド',
-    category: 'ring',
+    id: 'tpl-eternity',
+    name: 'エタニティ（全周パヴェ）',
+    category: 'stone_ring',
     emoji: '💍',
     build: () => {
-      const d = createDesign('ring', 'ミルグレイン バンド');
+      const d = createDesign('stone_ring', 'エタニティ');
       if (d.params.kind === 'ring') {
+        d.params.top = { type: 'none', width: 6, length: 6, height: 3 };
         d.params.profile = 'flat';
-        d.params.bandWidth = 3.6;
-        d.params.bandThickness = 1.8;
+        d.params.bandWidth = 3.2;
+        d.params.bandThickness = 1.9;
         d.params.innerDiameter = 17.0;
-        d.params.milgrain = true;
+        d.params.pave = 'full';
+        d.params.paveColor = GEM.diamond;
       }
       d.materialId = 'platinum';
       d.meta.origin = 'template';

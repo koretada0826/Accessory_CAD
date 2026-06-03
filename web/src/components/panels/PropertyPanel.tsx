@@ -120,6 +120,18 @@ export default function PropertyPanel() {
             onChange={(v) => commit((d) => { if (d.params.kind === 'ring') d.params.milgrain = v; })}
           />
           <div>
+            <div className="mb-1 text-xs text-ink-300/90">パヴェ留め（小粒石）</div>
+            <Segmented
+              value={p.pave ?? 'none'}
+              onChange={(v) => commit((d) => { if (d.params.kind === 'ring') d.params.pave = v; })}
+              options={[
+                { value: 'none', label: 'なし' },
+                { value: 'shoulder', label: '肩' },
+                { value: 'full', label: '全周' },
+              ]}
+            />
+          </div>
+          <div>
             <div className="mb-1 text-xs text-ink-300/90">トップ</div>
             <Segmented
               value={p.top.type}

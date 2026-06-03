@@ -19,13 +19,19 @@ describe('templates', () => {
     }
   });
 
-  it('看板デザイン(ソリティア)は石・ギャラリー・メレ・ミル打ちを含む', () => {
+  it('看板デザイン(パヴェ・ソリティア)は中央石・ギャラリー・パヴェ石を含む', () => {
     const d = signatureHero();
     const ids = buildModel(d).parts.map((p) => p.id);
     expect(d.stones.length).toBeGreaterThan(0);
     expect(ids.some((id) => id.startsWith('gallery'))).toBe(true);
-    expect(ids.some((id) => id.startsWith('melee'))).toBe(true);
-    expect(ids.some((id) => id.startsWith('milgrain'))).toBe(true);
+    expect(ids.some((id) => id.startsWith('pave-') && !id.includes('rail'))).toBe(true);
     expect(ids.some((id) => id === 'stone-0')).toBe(true);
+  });
+
+  it('エタニティ(全周パヴェ)は多数のパヴェ石を含む', () => {
+    const t = TEMPLATES.find((x) => x.id === 'tpl-eternity')!;
+    const ids = buildModel(t.build()).parts.map((p) => p.id);
+    const paveStones = ids.filter((id) => id.startsWith('pave-') && !id.includes('rail'));
+    expect(paveStones.length).toBeGreaterThan(10); // 全周に多数
   });
 });

@@ -10,6 +10,7 @@ import {
   makeBezel,
   makeGem,
   makeMilgrain,
+  makePave,
   makeProngs,
   sweepProfile,
 } from './primitives';
@@ -53,6 +54,24 @@ export function buildRing(design: AccessoryDesign, p: RingParams): BuiltModel {
       const mil = makeMilgrain(outerR - bR * 0.3, z, bR);
       parts.push({ id: `milgrain-${z > 0 ? 'a' : 'b'}`, geometry: mil, role: 'metal', componentType: 'shank' });
     }
+  }
+
+  // パヴェ／エタニティ留め: バンドに小粒石を並べる（“高い”ジュエリーの記号）
+  if (p.pave && p.pave !== 'none') {
+    const color = p.paveColor ?? '#eef6ff';
+    const TOP = Math.PI / 2; // 天頂(+Y)
+    const arcs: [number, number][] =
+      p.pave === 'full'
+        ? [[0, Math.PI * 2]]
+        : [
+            [TOP + 0.4, TOP + 2.0], // 左肩
+            [TOP - 2.0, TOP - 0.4], // 右肩
+          ];
+    arcs.forEach(([a0, a1], k) => {
+      const { stones: pv, rails } = makePave(outerR, p.bandWidth, a0, a1);
+      pv.forEach((g, i) => parts.push({ id: `pave-${k}-${i}`, geometry: g, role: 'stone', color }));
+      parts.push({ id: `pave-rail-${k}`, geometry: rails, role: 'metal', componentType: 'shank' });
+    });
   }
 
   // --- トップ（リング上部 +Y 方向に配置） ---
