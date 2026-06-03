@@ -67,9 +67,16 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
                 color={part.color ?? '#bfe9ff'}
                 metalness={0}
                 roughness={0.02}
-                transmission={0.55}
-                thickness={1.2}
-                ior={2.2}
+                transmission={0.85}
+                thickness={2.2}
+                ior={2.4}
+                reflectivity={1}
+                clearcoat={1}
+                clearcoatRoughness={0.02}
+                iridescence={0.3}
+                iridescenceIOR={1.8}
+                envMapIntensity={2.2}
+                side={THREE.DoubleSide}
                 wireframe={wireframe}
               />
             </mesh>

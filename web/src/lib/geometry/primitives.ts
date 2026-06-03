@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { PendantShape } from '@/types/accessory';
 
 /**
@@ -129,30 +128,80 @@ export function knifeProfile(thickness: number, width: number): THREE.Vector2[] 
 // ---------------------------------------------------------------------------
 
 /** ガードル径 d の宝石。crown(冠) + pavilion(下部) を結合 */
+/**
+ * 宝石の3D形状。リアルな輝きのため「平らなファセット」を持つブリリアントカットを
+ * 手続き的に構築する（円柱＋円錐の簡易表現を廃止）。
+ *
+ *   テーブル(平らな頂面) → クラウン(ジグザグの斜面) → ガードル(外周) →
+ *   パビリオン(キューレットに収束する斜面)
+ *
+ * 非インデックスのまま computeVertexNormals するとファセットごとに法線が立ち（フラット
+ * シェーディング）、面と面の稜線がくっきり出てジュエリーらしい煌めきになる。
+ */
 export function makeGem(d: number, cut: string = 'round'): THREE.BufferGeometry {
-  const facets = cut === 'princess' ? 4 : cut === 'oval' || cut === 'pear' ? 12 : 8;
-  const girdle = d / 2;
-  const table = girdle * 0.55;
-  const crownH = d * 0.18;
-  const pavH = d * 0.5;
+  const R = d / 2;
 
+  // カボション: 滑らかなドーム（つや石・パール用）
   if (cut === 'cabochon') {
-    const g = new THREE.SphereGeometry(girdle, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-    g.scale(1, 0.55, 1);
+    const g = new THREE.SphereGeometry(R, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2);
+    g.scale(1, 0.6, 1);
+    g.translate(0, -R * 0.05, 0);
     g.computeVertexNormals();
     return g;
   }
 
-  const crown = new THREE.CylinderGeometry(table, girdle, crownH, facets);
-  crown.translate(0, crownH / 2, 0);
-  const pav = new THREE.ConeGeometry(girdle, pavH, facets);
-  pav.rotateX(Math.PI); // 先端を下に
-  pav.translate(0, -pavH / 2, 0);
-  const merged = mergeGeometries([crown, pav], false)!;
-  if (cut === 'oval' || cut === 'marquise') merged.scale(1.4, 1, 0.7);
-  if (cut === 'pear') merged.scale(1, 1, 1.2);
-  merged.computeVertexNormals();
-  return merged;
+  // 対称数 N と各種比率（実際のラウンドブリリアント近似）
+  const N = cut === 'princess' || cut === 'emerald' ? 4 : 8;
+  const rt = R * (cut === 'princess' || cut === 'emerald' ? 0.66 : 0.53); // テーブル半径
+  const crownH = R * 0.42; // ガードルから天面までの高さ
+  const pavD = R * 0.96; // ガードルからキューレットまでの深さ
+  const off = cut === 'princess' || cut === 'emerald' ? Math.PI / 4 : 0;
+
+  const v = (ang: number, r: number, y: number): [number, number, number] => [
+    Math.cos(ang) * r,
+    y,
+    Math.sin(ang) * r,
+  ];
+
+  const A: [number, number, number][] = []; // テーブル外周
+  const B: [number, number, number][] = []; // ガードル高点（クラウン主面が降りる点）
+  const C: [number, number, number][] = []; // ガードル谷点（半ピッチずらし＝スキャロップ）
+  for (let i = 0; i < N; i++) {
+    const a = off + (i / N) * Math.PI * 2;
+    const am = off + ((i + 0.5) / N) * Math.PI * 2;
+    A.push(v(a, rt, crownH));
+    B.push(v(a, R, 0));
+    C.push(v(am, R * 0.985, 0));
+  }
+  const T: [number, number, number] = [0, crownH, 0]; // テーブル中心
+  const K: [number, number, number] = [0, -pavD, 0]; // キューレット
+
+  const pos: number[] = [];
+  const tri = (p: number[], q: number[], r: number[]) => {
+    pos.push(p[0], p[1], p[2], q[0], q[1], q[2], r[0], r[1], r[2]);
+  };
+  for (let i = 0; i < N; i++) {
+    const j = (i + 1) % N;
+    // テーブル（平らな頂面・中心からの扇）
+    tri(T, A[j], A[i]);
+    // クラウン（テーブル外周→スキャロップのジグザグ斜面）
+    tri(A[i], C[i], B[i]);
+    tri(A[i], A[j], C[i]);
+    tri(A[j], B[j], C[i]);
+    // パビリオン（ガードル→キューレットに収束）
+    tri(B[i], K, C[i]);
+    tri(C[i], K, B[j]);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  // 異形カットは縦横比で表現（ペアは下を尖らせる）
+  if (cut === 'oval') geo.scale(1.35, 1, 0.82);
+  else if (cut === 'marquise') geo.scale(1.7, 1, 0.6);
+  else if (cut === 'pear') geo.scale(0.95, 1, 1.25);
+  else if (cut === 'emerald') geo.scale(1.4, 1, 0.95);
+  geo.computeVertexNormals(); // 非インデックス→フラット法線（ファセットが立つ）
+  return geo;
 }
 
 // ---------------------------------------------------------------------------
