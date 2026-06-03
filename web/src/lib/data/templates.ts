@@ -32,6 +32,77 @@ const stone = (cut: string, diameter: number, color: string, setting = 'prong') 
 });
 
 /**
+ * しずく型の正規化輪郭 [-0.5,0.5] を生成（上が尖り・下が丸い）。
+ * 左右対称。topTaper=上の尖り / bottomRoundness=下の丸み。
+ */
+function teardropOutline(topTaper = 0.45, bottomRoundness = 0.78, n = 72): { x: number; y: number }[] {
+  // 制御点でしずくを構成: 上頂点(0,1)、下は半径rの円弧、両側はベジェ
+  const apex = { x: 0, y: 1 };
+  const r = 0.5 * (0.7 + bottomRoundness * 0.3); // 下円の半径
+  const by = -1 + r; // 下円の中心y
+  const rightBottom = { x: r, y: by };
+  const leftBottom = { x: -r, y: by };
+  // 片側ベジェ(apex→rightBottom)を sample
+  const bez = (p0: any, c1: any, c2: any, p1: any, steps: number) => {
+    const arr: { x: number; y: number }[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps, u = 1 - t;
+      arr.push({
+        x: u * u * u * p0.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * p1.x,
+        y: u * u * u * p0.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * p1.y,
+      });
+    }
+    return arr;
+  };
+  const half = Math.floor(n / 4);
+  const c1 = { x: r * (1.1 + topTaper * 0.6), y: 1 - topTaper * 1.1 };
+  const c2 = { x: r * 1.08, y: by + r * 0.7 };
+  const right = bez(apex, c1, c2, rightBottom, half);
+  // 下の円弧 rightBottom → (0,-1) → leftBottom
+  const arc: { x: number; y: number }[] = [];
+  for (let i = 1; i < n / 2; i++) {
+    const a = (i / (n / 2)) * Math.PI; // 0..π
+    arc.push({ x: r * Math.cos(-Math.PI / 2 - a) * -1, y: by + r * Math.sin(-Math.PI / 2 - a) * -1 });
+  }
+  // 左側 = 右側のミラー（逆順）
+  const left = right.map((p) => ({ x: -p.x, y: p.y })).reverse();
+  const raw = [...right, ...arc, ...left];
+  // bbox 正規化 → [-0.5,0.5]
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of raw) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+  const w = maxX - minX, h = maxY - minY, cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  return raw.map((p) => ({ x: (p.x - cx) / w, y: (p.y - cy) / h }));
+}
+
+/**
+ * 看板級ネックレス＝オープンティアドロップ・ペンダント。
+ * 外形しずく − 内側しずく(中抜き) ＋ 下部内側のセンターダイヤ(ベゼル) ＋ 片側パヴェ ＋ チェーン。
+ */
+export function signatureNecklace(): AccessoryDesign {
+  const d = createDesign('necklace', 'オープンティアドロップ ネックレス');
+  const W = 14, Hh = 19, fw = 1.7;
+  const outline = teardropOutline(0.5, 0.78);
+  const sx = 1 - (2 * fw) / W, sy = 1 - (2 * fw) / Hh;
+  const inner = outline.map((p) => ({ x: p.x * sx, y: p.y * sy - 0.04 })); // 少し下げてフレーム上側を太く
+  if (d.params.kind === 'pendant') {
+    d.params.shape = 'custom';
+    d.params.outline = outline;
+    d.params.innerCutout = inner;
+    d.params.width = W;
+    d.params.height = Hh;
+    d.params.thickness = 1.8;
+    d.params.cornerRadius = 0;
+    d.params.bail = { type: 'integrated_hole', innerDiameter: 2.4, wall: 1.4 };
+    d.params.pave = { side: 'left', count: 16, diameter: 0.9, color: GEM.diamond };
+  }
+  d.materialId = 'gold_yellow';
+  // 下部内側のセンターダイヤ（ベゼル）
+  d.stones.push({ id: nanoid(8), cut: 'round', setting: 'bezel', diameter: 3.2, position: { x: 0, y: -Hh * 0.3 }, height: 1.6, color: GEM.diamond });
+  d.meta.origin = 'template';
+  return d;
+}
+
+/**
  * 看板＝最初に表示する華のあるシグネチャー。
  * ホワイトゴールドのソリティア（大粒ダイヤ＋ミル打ち＋ギャラリー＋肩のメレ）。
  */
@@ -53,6 +124,13 @@ export function signatureHero(): AccessoryDesign {
 
 /** スターターテンプレート（シグネチャー優先・欲しくなる順） */
 export const TEMPLATES: Template[] = [
+  {
+    id: 'tpl-open-teardrop',
+    name: 'オープンティアドロップ',
+    category: 'necklace',
+    emoji: '💧',
+    build: signatureNecklace,
+  },
   {
     id: 'tpl-solitaire',
     name: 'ソリティア（ダイヤ）',

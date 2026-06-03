@@ -234,6 +234,21 @@ export interface PendantParams {
    */
   outline?: Vec2[];
   /**
+   * 内側のくり抜き輪郭（正規化 [-0.5,0.5]）。outline からこれをboolean cutして
+   * 「中抜きフレーム」を作る（オープンティアドロップ等）。円穴(holes)と違い任意形状。
+   */
+  innerCutout?: Vec2[];
+  /**
+   * パヴェ留め（フレームの片側カーブに沿った小粒石の列）。
+   * side=石を並べる側 / count=石数 / diameter=石径mm / color=石色。
+   */
+  pave?: {
+    side: 'left' | 'right' | 'both';
+    count: number;
+    diameter: number;
+    color: string;
+  };
+  /**
    * 画像由来の立体レリーフ（バスレリーフ）。画像の陰影から作った高さマップを
    * 前面に隆起させ、平板トレースを立体化する。gx×gy のグリッド（行優先）。
    * data は 0..1 の正規化高さ（外形マスク外は -1）。depth は最大隆起 mm。

@@ -48,6 +48,23 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
     shape.holes.push(circleHole(h.position.x, h.position.y, h.diameter / 2));
   }
 
+  // 内側くり抜き（オープンフレーム）: 正規化輪郭を w/h でスケールし穴として打ち抜く。
+  // 穴は外形と逆巻き(Earcutが正しく抜く)に揃える。
+  if (p.innerCutout && p.innerCutout.length >= 3) {
+    const signedArea = (pts: { x: number; y: number }[]) => {
+      let s = 0;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) s += (pts[j].x - pts[i].x) * (pts[j].y + pts[i].y);
+      return s;
+    };
+    const outerSign = Math.sign(signedArea(p.outline ?? p.innerCutout));
+    let inner = p.innerCutout.map((pt) => ({ x: pt.x * p.width, y: pt.y * p.height }));
+    if (Math.sign(signedArea(inner)) === outerSign) inner = inner.slice().reverse();
+    const hole = new THREE.Path();
+    inner.forEach((pt, i) => (i === 0 ? hole.moveTo(pt.x, pt.y) : hole.lineTo(pt.x, pt.y)));
+    hole.closePath();
+    shape.holes.push(hole);
+  }
+
   const body = new THREE.ExtrudeGeometry(shape, {
     depth: p.thickness,
     bevelEnabled: true,
@@ -96,6 +113,12 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
       bezel.translate(st.position.x, st.position.y, seatZ);
       parts.push({ id: `bezel-${i}`, geometry: bezel, role: 'metal', componentType: 'border' });
     }
+  }
+
+  // パヴェ留め: フレーム片側カーブに沿って小粒石を等間隔配置（光の線でなく粒として）
+  if (p.pave && p.outline && p.outline.length >= 8) {
+    const stones = buildPaveAlongOutline(p);
+    for (const part of stones) parts.push(part);
   }
 
   // ネックレス: 吊り穴/バチカンの接続点から上へ2本のチェーンを生成（ペンダントと連結）
@@ -188,6 +211,59 @@ function buildReliefMesh(p: PendantParams): THREE.BufferGeometry | null {
   geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
+}
+
+/**
+ * パヴェ留めのパーツ列を生成する。
+ * 外形outline(正規化)を w/h でmm化し、指定側のカーブ上に小粒石を弧長等間隔で並べ、
+ * フレーム上に乗るよう少し内側へオフセット。石と石の間に留め粒(ビーズ)を置く。
+ */
+function buildPaveAlongOutline(p: PendantParams): BuiltPart[] {
+  const out: BuiltPart[] = [];
+  const pave = p.pave!;
+  const pts = p.outline!.map((o) => ({ x: o.x * p.width, y: o.y * p.height }));
+  const onSide = (x: number) =>
+    pave.side === 'both' ? true : pave.side === 'left' ? x < -p.width * 0.04 : x > p.width * 0.04;
+  // 指定側の連続点列を抽出（順序保持）
+  const side = pts.filter((pt) => onSide(pt.x));
+  if (side.length < 3) return out;
+  // 弧長
+  const cum = [0];
+  for (let i = 1; i < side.length; i++) cum.push(cum[i - 1] + Math.hypot(side[i].x - side[i - 1].x, side[i].y - side[i - 1].y));
+  const total = cum[cum.length - 1];
+  if (total < pave.diameter) return out;
+  const sampleAt = (s: number) => {
+    let i = 1;
+    while (i < cum.length && cum[i] < s) i++;
+    const a = side[i - 1], b = side[Math.min(i, side.length - 1)];
+    const seg = Math.max(1e-3, cum[Math.min(i, cum.length - 1)] - cum[i - 1]);
+    const t = Math.max(0, Math.min(1, (s - cum[i - 1]) / seg));
+    return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+  };
+  const frontZ = p.thickness / 2 + 0.05;
+  const inset = pave.diameter * 0.55; // フレーム上に乗せるため中心方向へ
+  const n = Math.max(3, pave.count);
+  const beadR = Math.max(0.12, pave.diameter * 0.25);
+  let prev: { x: number; y: number } | null = null;
+  for (let j = 0; j < n; j++) {
+    const s = (j / (n - 1)) * total;
+    const pt = sampleAt(s);
+    const len = Math.hypot(pt.x, pt.y) || 1;
+    const px = pt.x - (pt.x / len) * inset;
+    const py = pt.y - (pt.y / len) * inset;
+    const gem = makeGem(pave.diameter, 'round');
+    gem.rotateX(Math.PI / 2);
+    gem.translate(px, py, frontZ);
+    out.push({ id: `pave-${j}`, geometry: gem, role: 'stone', color: pave.color });
+    // 石と石の間に留め粒（ビーズ）
+    if (prev) {
+      const bead = new THREE.SphereGeometry(beadR, 8, 7);
+      bead.translate((px + prev.x) / 2, (py + prev.y) / 2, frontZ);
+      out.push({ id: `pave-bead-${j}`, geometry: bead, role: 'metal', componentType: 'border' });
+    }
+    prev = { x: px, y: py };
+  }
+  return out;
 }
 
 /** 点が多角形の内部にあるか（ray casting） */
