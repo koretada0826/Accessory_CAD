@@ -113,3 +113,11 @@
 - iter(P2-12): 最小肉厚の実測measure。meshHealth.measurePartMinWall(三角形重心から内向きレイ→反対面までの距離をMöller–Trumboreで実測, サンプル上限110)。check.tsで規定割れ時warning＋情報行に実測最小肉厚を表示。円盤=厚み付近/極薄検出のテスト2件追加。typecheck/19テスト合格。
 - iter(P2-13): ストーンリングの石座精密化。buildRingの石座下にギャラリー(アンダーベゼル・レール＋座とバンドを繋ぐ4本ワイヤー、componentType=gallery)を追加。ソリティア時は両肩にメレ(弧に沿ったパヴェ小石3対＋ビーズ爪)を配置。stone_ringでgallery/melee生成のテスト追加。typecheck/20テスト合格。これで仕上げフェーズ2の全項目完了。
 - iter(P2-14 締め): 仕上げフェーズ2の残タスクを全消化(P2-7〜13)。本番ビルド成功(✓ Compiled successfully, / = 308kB First Load)。vitest 20件全合格。バックエンドSTEPはcadquery2.7でリング印台刻印を実測検証。PROGRESSの未完チェックボックスは0。
+
+---
+
+## フェーズ3: 品質の引き上げ（ユーザー要望「凝ったデザイン・画像リアル化・工場レベル」）
+目的: チープさを根絶し、画像再現度を上げ、受注生産に耐えるデータ品質へ。
+- iter(Q1): 宝石をブリリアントカットに刷新。makeGemを円柱+円錐→テーブル/クラウン/ガードル/パビリオンの手続き的ブリリアント(非インデックス+フラット法線でファセットが立つ)。カット別(ラウンド/オーバル/ペア/マーキス/プリンセス/エメラルド/カボション)。石マテリアルもtransmission0.85/ior2.4/clearcoat/iridescence/DoubleSideで屈折感強化。
+- iter(Q2): 石座精密化。makeBezel(肉厚テーパー覆輪/Lathe)・makeProngs(下太上細テーパー＋先玉＋内側絞り爪)を追加し、ring/pendant/earringsの石座を統一。石径5mm以上は6本爪。
+- iter(Q3): 画像の立体レリーフ化。imageContour.extractReliefで陰影→高さマップ(最大72セル/マスク内正規化)、pendant.buildReliefMeshで前面にバスレリーフ隆起メッシュ(PlaneGeometry準拠+Z法線、マスク内のみ面張り)。STL/OBJ/GLBに自動反映=3Dプリント/鋳造データにも乗る。PropertyPanelに強さスライダー。本番ビルド成功(/ = 309kB)、vitest 21件合格。
