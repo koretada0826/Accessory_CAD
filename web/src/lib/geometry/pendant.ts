@@ -72,8 +72,8 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
     bevelThickness: Math.min(0.2, p.thickness * 0.13),
     // カスタム外形(teardrop等)の解像度は outline 点数(208)で決まる。curveSegmentsは
     // disc/楕円など曲線シェイプ用なので適正値に（過剰だとtri数が爆発する）。
-    bevelSegments: 6,
-    curveSegments: 72,
+    bevelSegments: 10,
+    curveSegments: 96,
   });
   body.translate(0, 0, -p.thickness / 2);
   body.computeVertexNormals();
@@ -294,8 +294,8 @@ function buildPaveAlongOutline(p: PendantParams): BuiltPart[] {
     const t = Math.max(0, Math.min(1, (s - cum[i - 1]) / seg));
     return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
   };
-  const frontZ = p.thickness / 2 + 0.05;
-  const inset = pave.diameter * 0.55; // フレーム上に乗せるため中心方向へ
+  const frontZ = p.thickness / 2 + pave.diameter * 0.25; // 埋もれないよう前面に出す
+  const inset = pave.diameter * 0.42; // フレーム上に乗せるため中心方向へ（控えめに）
   const n = Math.max(3, pave.count);
   const beadR = Math.max(0.12, pave.diameter * 0.25);
   let prev: { x: number; y: number } | null = null;

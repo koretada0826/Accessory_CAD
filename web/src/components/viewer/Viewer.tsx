@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Grid, Html, GizmoHelper, GizmoViewcube, MeshReflectorMaterial } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette, DepthOfField } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette, DepthOfField, SMAA } from '@react-three/postprocessing';
 // 実写HDRIをローカル同梱（CDN非依存・オフライン可）
 import studioHdri from '@pmndrs/assets/hdri/studio.exr';
 import * as THREE from 'three';
@@ -82,7 +82,7 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
       else if (pat.type === 'gothic') patternRoughness = 0.45;
     } else if (mat.metalness > 0.5) {
       // 上品で深い反射: 鏡面すぎず(=安っぽくテカらない)、白飛びしない研磨
-      patternRoughness = Math.max(0.09, mat.roughness * 0.5);
+      patternRoughness = Math.max(0.11, mat.roughness * 0.62);
     }
     return { model, mat, patternRoughness };
   }, [design]);
@@ -154,11 +154,11 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
               roughness={patternRoughness}
               // 微細な反射差（均一CG反射を脱して本物の金属らしい揺らぎ）
               roughnessMap={mat.metalness > 0.5 ? microRough : undefined}
-              // 実写HDRIに合わせ、映り込みは豊かだが白飛びしない強度に
-              clearcoat={mat.metalness > 0.5 ? 0.5 : 0}
-              clearcoatRoughness={0.1}
-              reflectivity={0.6}
-              envMapIntensity={mat.metalness > 0.5 ? 1.7 : 1.1}
+              // 実写HDRIに合わせ、映り込みは豊かだが白飛びしない上品な強度に
+              clearcoat={mat.metalness > 0.5 ? 0.38 : 0}
+              clearcoatRoughness={0.14}
+              reflectivity={0.55}
+              envMapIntensity={mat.metalness > 0.5 ? 1.55 : 1.1}
               emissive={highlighted ? new THREE.Color('#e6c068') : new THREE.Color('#000000')}
               emissiveIntensity={highlighted ? 0.25 : 0}
               wireframe={wireframe}
@@ -386,7 +386,7 @@ export default function Viewer() {
         <color attach="background" args={['#070709']} />
         {/* スタジオ3灯（キー/フィル/リム）で立体と接地を作る。主たる映り込みはHDRI側 */}
         <ambientLight intensity={0.18} />
-        <directionalLight position={[14, 22, 16]} intensity={0.9} color="#fff3df" castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
+        <directionalLight position={[14, 22, 16]} intensity={0.9} color="#fff3df" castShadow shadow-mapSize-width={4096} shadow-mapSize-height={4096} shadow-bias={-0.0002} />
         <directionalLight position={[-16, 8, -6]} intensity={0.4} color="#aec0e8" />
         <directionalLight position={[0, 6, -18]} intensity={0.7} color="#fff" />
 
@@ -463,14 +463,16 @@ export default function Viewer() {
         {!wireframe && hero && (
           <EffectComposer multisampling={8}>
             {/* DoFは被写体をぼかさない極浅め（背景にだけ僅かな奥行き）。シャープさ優先 */}
-            <DepthOfField target={[0, 0, 0]} focalLength={0.06} bokehScale={1.3} height={700} />
-            <Bloom mipmapBlur intensity={0.14} luminanceThreshold={0.96} luminanceSmoothing={0.1} radius={0.45} />
-            <Vignette offset={0.32} darkness={0.55} eskil={false} />
+            <DepthOfField target={[0, 0, 0]} focalLength={0.07} bokehScale={1.1} height={768} />
+            <Bloom mipmapBlur intensity={0.09} luminanceThreshold={0.97} luminanceSmoothing={0.08} radius={0.4} />
+            <Vignette offset={0.32} darkness={0.52} eskil={false} />
+            <SMAA />
           </EffectComposer>
         )}
         {!wireframe && !hero && (
-          <EffectComposer multisampling={4}>
-            <Bloom mipmapBlur intensity={0.1} luminanceThreshold={0.96} luminanceSmoothing={0.1} radius={0.4} />
+          <EffectComposer multisampling={8}>
+            <Bloom mipmapBlur intensity={0.08} luminanceThreshold={0.97} luminanceSmoothing={0.08} radius={0.35} />
+            <SMAA />
           </EffectComposer>
         )}
       </Canvas>

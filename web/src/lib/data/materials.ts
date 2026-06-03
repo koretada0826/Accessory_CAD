@@ -5,9 +5,9 @@ export const MATERIALS: Record<MaterialId, Material> = {
   gold_yellow: {
     id: 'gold_yellow',
     label: 'イエローゴールド (K18)',
-    color: '#e8c25a',
+    color: '#e7bb52', // 18K polished yellow gold（やや深く上質に）
     metalness: 1,
-    roughness: 0.22,
+    roughness: 0.19,
     density: 15.6,
     costPerGram: 9000,
   },

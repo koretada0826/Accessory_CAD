@@ -192,8 +192,8 @@ export function makeGem(d: number, cut: string = 'round'): THREE.BufferGeometry 
     return g;
   }
 
-  // 対称数 N と各種比率（実際のラウンドブリリアント近似）。丸系は24分割で高精細・低ポリ感解消。
-  const N = cut === 'princess' || cut === 'emerald' ? 4 : 24;
+  // 対称数 N と各種比率（実際のラウンドブリリアント近似）。丸系は32分割で高精細(facets多)・低ポリ感解消。
+  const N = cut === 'princess' || cut === 'emerald' ? 4 : 32;
   const rt = R * (cut === 'princess' || cut === 'emerald' ? 0.66 : 0.53); // テーブル半径
   const crownH = R * 0.42; // ガードルから天面までの高さ
   const pavD = R * 0.96; // ガードルからキューレットまでの深さ

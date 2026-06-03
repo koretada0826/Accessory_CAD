@@ -35,7 +35,7 @@ const stone = (cut: string, diameter: number, color: string, setting = 'prong') 
  * しずく型の正規化輪郭 [-0.5,0.5] を生成（上が尖り・下が丸い）。
  * 左右対称。topTaper=上の尖り / bottomRoundness=下の丸み。
  */
-function teardropOutline(topTaper = 0.45, bottomRoundness = 0.78, n = 208): { x: number; y: number }[] {
+function teardropOutline(topTaper = 0.45, bottomRoundness = 0.78, n = 256): { x: number; y: number }[] {
   // 制御点でしずくを構成: 上頂点(0,1)、下は半径rの円弧、両側はベジェ
   const apex = { x: 0, y: 1 };
   const r = 0.5 * (0.7 + bottomRoundness * 0.3); // 下円の半径
@@ -93,11 +93,11 @@ export function signatureNecklace(): AccessoryDesign {
     d.params.thickness = 1.8;
     d.params.cornerRadius = 0;
     d.params.bail = { type: 'integrated_hole', innerDiameter: 2.4, wall: 1.4 };
-    d.params.pave = { side: 'left', count: 16, diameter: 0.9, color: GEM.diamond };
+    d.params.pave = { side: 'left', count: 18, diameter: 1.0, color: GEM.diamond };
   }
   d.materialId = 'gold_yellow';
   // 下部内側のセンターダイヤ（ベゼル）
-  d.stones.push({ id: nanoid(8), cut: 'round', setting: 'bezel', diameter: 3.2, position: { x: 0, y: -Hh * 0.3 }, height: 1.6, color: GEM.diamond });
+  d.stones.push({ id: nanoid(8), cut: 'round', setting: 'bezel', diameter: 3.4, position: { x: 0, y: -Hh * 0.3 }, height: 1.8, color: GEM.diamond });
   d.meta.origin = 'template';
   return d;
 }
