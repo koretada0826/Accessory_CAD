@@ -3,13 +3,16 @@ import type { AccessoryDesign, Warning } from '@/types/accessory';
 import { MATERIALS } from '@/lib/data/materials';
 import { estimateVolumeMm3, buildModel } from '@/lib/geometry';
 import { analyzeMeshHealth, MeshHealth } from './meshHealth';
+import { estimateCost, CostBreakdown } from './cost';
 
 export interface ManufacturingReport {
   warnings: Warning[];
   /** 推定重量 g */
   weightGram: number;
-  /** 推定原価 円（参考） */
+  /** 推定原価 円（地金+石+工賃の合計・参考） */
   costYen: number;
+  /** 原価内訳 + 小売概算レンジ */
+  costBreakdown: CostBreakdown;
   /** 体積 mm^3 */
   volumeMm3: number;
   /** 3Dプリント原型に向くか */
@@ -134,7 +137,8 @@ export function runManufacturingCheck(design: AccessoryDesign): ManufacturingRep
   const volumeMm3 = estimateVolumeMm3(design);
   const mat = MATERIALS[design.materialId];
   const weightGram = (volumeMm3 / 1000) * mat.density; // cm^3 × density
-  const costYen = Math.round(weightGram * mat.costPerGram);
+  const costBreakdown = estimateCost(design, Math.round(weightGram * 100) / 100);
+  const costYen = costBreakdown.totalYen;
 
   // 3Dプリント原型適性（簡易）：致命エラーが無ければ可
   const printable = !warnings.some((x) => x.severity === 'error');
@@ -165,5 +169,6 @@ export function runManufacturingCheck(design: AccessoryDesign): ManufacturingRep
     volumeMm3: Math.round(volumeMm3),
     printable,
     meshHealth,
+    costBreakdown,
   };
 }

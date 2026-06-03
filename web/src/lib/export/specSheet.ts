@@ -1,5 +1,6 @@
 import type { AccessoryDesign } from '@/types/accessory';
 import { runManufacturingCheck } from '@/lib/manufacturing/check';
+import { castingNotes } from '@/lib/manufacturing/cost';
 import { MATERIALS } from '@/lib/data/materials';
 import { CATEGORY_LABELS } from '@/lib/data/factory';
 import { innerDiameterToJpSize } from '@/lib/data/ringSize';
@@ -124,7 +125,27 @@ export function buildSpecSheetHTML(design: AccessoryDesign): string {
   <h2>製造チェック / QA</h2>
   <table><thead><tr><th>区分</th><th>項目</th><th>内容</th></tr></thead><tbody>${warnRows}</tbody></table>
 
-  <footer>このシートは Atelier により自動生成されました。寸法は設計値です。鋳造収縮・研磨代は別途ご考慮ください。</footer>
+  <div class="grid" style="margin-top:8px;">
+    <div>
+      <h2>原価内訳（参考） / Cost</h2>
+      <table class="kv">
+        ${report.costBreakdown.lines.map((l) => `<tr><th>${esc(l.label)}</th><td>¥${l.yen.toLocaleString()}${l.note ? `<br><span style="color:#999;font-size:11px">${esc(l.note)}</span>` : ''}</td></tr>`).join('')}
+        <tr><th style="color:#caa24a">製造原価 合計</th><td style="font-weight:700">¥${report.costBreakdown.totalYen.toLocaleString()}</td></tr>
+        <tr><th>小売 概算レンジ</th><td>¥${report.costBreakdown.retailLowYen.toLocaleString()} 〜 ¥${report.costBreakdown.retailHighYen.toLocaleString()}</td></tr>
+      </table>
+    </div>
+    <div>
+      <h2>鋳造・仕上げメモ / Casting</h2>
+      <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.7;color:#333;">
+        ${castingNotes(design, report.weightGram).map((n) => `<li>${esc(n)}</li>`).join('')}
+      </ul>
+      <h2>メッシュ</h2>
+      <table class="kv"><tr><th>水密(manifold)</th><td>${report.meshHealth.allManifold ? '✓ 閉じています' : '要確認（境界エッジあり）'}</td></tr>
+      <tr><th>独立ソリッド</th><td>${report.meshHealth.solids} 個</td></tr></table>
+    </div>
+  </div>
+
+  <footer>このシートは Atelier により自動生成されました。寸法は設計値です。原価・売価は参考値で、相場・数量・工房により変動します。</footer>
   <div class="noprint" style="text-align:center;margin-top:16px;">
     <button onclick="window.print()" style="padding:8px 20px;border-radius:8px;border:0;background:#caa24a;color:#fff;font-weight:700;cursor:pointer;">PDFに印刷</button>
   </div>
