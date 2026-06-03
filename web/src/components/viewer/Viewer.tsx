@@ -246,37 +246,49 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
 }
 
 /** カメラを bounds に合わせて初期化 & ビュー切替 */
-function CameraRig({ preset, presetNonce }: { preset: ViewPreset; presetNonce: number }) {
+function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetNonce: number; focus: 'full' | 'pendant' }) {
   const design = useDesignStore((s) => s.design);
   const { camera } = useThree();
   const controls = useThree((s) => s.controls) as any;
 
-  const maxDim = useMemo(() => {
-    const b = buildModel(design).bounds;
-    return Math.max(b.width, b.height, b.depth, 8);
+  const { center, fullDim, pendantDim } = useMemo(() => {
+    const model = buildModel(design);
+    const box = new THREE.Box3();
+    for (const part of model.parts) {
+      part.geometry.computeBoundingBox();
+      if (part.geometry.boundingBox) box.union(part.geometry.boundingBox);
+    }
+    const c = new THREE.Vector3();
+    const size = new THREE.Vector3();
+    if (!box.isEmpty()) { box.getCenter(c); box.getSize(size); }
+    const fd = Math.max(size.x, size.y, size.z, 8);
+    const p = design.params;
+    const pd = p.kind === 'pendant' ? Math.max(p.width, p.height, 8) : fd;
+    return { center: c, fullDim: fd, pendantDim: pd };
   }, [design]);
 
   useEffect(() => {
-    // マクロ撮影風に主役を大きく（望遠＋近距離）
-    const d = maxDim * 2.05;
+    const usePendant = focus === 'pendant';
+    const target = usePendant ? new THREE.Vector3(0, 0, 0) : center; // ペンダントは原点
+    const d = (usePendant ? pendantDim : fullDim) * (usePendant ? 2.3 : 2.05);
     const pos: Record<ViewPreset, [number, number, number]> = {
-      persp: [d * 0.62, d * 0.48, d * 0.92],
-      front: [0, 0, d],
-      side: [d, 0, 0.0001],
-      back: [0, 0, -d],
-      top: [0, d, 0.0001],
+      persp: [target.x + d * 0.62, target.y + d * 0.48, target.z + d * 0.92],
+      front: [target.x, target.y, target.z + d],
+      side: [target.x + d, target.y, target.z + 0.0001],
+      back: [target.x, target.y, target.z - d],
+      top: [target.x, target.y + d, target.z + 0.0001],
     };
     camera.position.set(...pos[preset]);
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(target);
     (camera as THREE.PerspectiveCamera).near = 0.1;
-    (camera as THREE.PerspectiveCamera).far = d * 10;
+    (camera as THREE.PerspectiveCamera).far = (fullDim + d) * 10;
     camera.updateProjectionMatrix();
     if (controls) {
-      controls.target.set(0, 0, 0);
+      controls.target.copy(target);
       controls.update();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, presetNonce, maxDim]);
+  }, [preset, presetNonce, focus, center, fullDim, pendantDim]);
 
   return null;
 }
@@ -296,6 +308,7 @@ function DimensionLabel() {
 export default function Viewer() {
   // 表示モード: hero=広告レンダー(DoF/反射床/被写界深度) / edit=編集(グリッド/寸法/くっきり)
   const [view, setView2] = useState<'hero' | 'edit'>('hero');
+  const [focus, setFocus] = useState<'full' | 'pendant'>('full');
   const [wireframe, setWireframe] = useState(false);
   const [grid, setGrid] = useState(false);
   const [dims, setDims] = useState(false);
@@ -332,10 +345,17 @@ export default function Viewer() {
 
   return (
     <div className="relative h-full w-full">
-      {/* 表示モード切替（編集 / ヒーローレンダー） */}
+      {/* 表示モード切替（編集 / ヒーローレンダー）＋ ヒーロー時の構図(全体/寄り) */}
       <div className="glass pointer-events-auto absolute left-3 top-3 z-10 flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
         <Btn active={view === 'edit'} onClick={() => setView2('edit')} title="編集ビュー（グリッド・寸法・くっきり表示）">編集</Btn>
-        <Btn active={view === 'hero'} onClick={() => setView2('hero')} title="ヒーローレンダー（広告のような被写界深度・反射床）">ヒーロー</Btn>
+        <Btn active={view === 'hero'} onClick={() => setView2('hero')} title="ヒーローレンダー（広告のような高画質）">ヒーロー</Btn>
+        {hero && (
+          <>
+            <div className="mx-1 h-5 w-px bg-white/10" />
+            <Btn active={focus === 'full'} onClick={() => setFocus('full')} title="ネックレス全体">全体</Btn>
+            <Btn active={focus === 'pendant'} onClick={() => setFocus('pendant')} title="ペンダント寄り">寄り</Btn>
+          </>
+        )}
       </div>
 
       {/* ビュー操作ツールバー（視点プリセット / 表示トグル） */}
@@ -356,9 +376,9 @@ export default function Viewer() {
 
       <Canvas
         shadows
-        dpr={[1, 2]}
         camera={{ fov: 30, position: [22, 16, 32] }}
-        gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.92 }}
+        dpr={[2, 2.5]}
+        gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.94 }}
         resize={{ debounce: 0, scroll: false }}
         onCreated={(state) => state.gl.render(state.scene, state.camera)}
         onPointerMissed={() => useDesignStore.getState().selectComponent(null)}
@@ -373,10 +393,10 @@ export default function Viewer() {
         {/* 実写HDRIスタジオ環境マップ（ジュエリー広告のような豊かな映り込み）。
             手続き光より自然な階調・空気感。サスペンド時はフォールバックで暗転させない。 */}
         <Suspense fallback={null}>
-          <Environment files={studioHdri as string} environmentIntensity={0.9} resolution={1024} />
+          <Environment files={studioHdri as string} environmentIntensity={0.95} resolution={2048} />
         </Suspense>
 
-        <CameraRig preset={preset} presetNonce={nonce} />
+        <CameraRig preset={preset} presetNonce={nonce} focus={focus} />
         <AccessoryMeshes wireframe={wireframe} />
         {dims && <DimensionLabel />}
 
@@ -441,10 +461,11 @@ export default function Viewer() {
 
         {/* 後処理。ヒーロー=広告風(被写界深度＋Bloom＋周辺減光)、編集=くっきり(軽いBloomのみ) */}
         {!wireframe && hero && (
-          <EffectComposer multisampling={4}>
-            <DepthOfField target={[0, 0, 0]} focalLength={0.02} bokehScale={2.4} height={480} />
-            <Bloom mipmapBlur intensity={0.18} luminanceThreshold={0.95} luminanceSmoothing={0.12} radius={0.5} />
-            <Vignette offset={0.3} darkness={0.6} eskil={false} />
+          <EffectComposer multisampling={8}>
+            {/* DoFは被写体をぼかさない極浅め（背景にだけ僅かな奥行き）。シャープさ優先 */}
+            <DepthOfField target={[0, 0, 0]} focalLength={0.06} bokehScale={1.3} height={700} />
+            <Bloom mipmapBlur intensity={0.14} luminanceThreshold={0.96} luminanceSmoothing={0.1} radius={0.45} />
+            <Vignette offset={0.32} darkness={0.55} eskil={false} />
           </EffectComposer>
         )}
         {!wireframe && !hero && (

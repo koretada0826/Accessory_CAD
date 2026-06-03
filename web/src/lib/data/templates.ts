@@ -35,7 +35,7 @@ const stone = (cut: string, diameter: number, color: string, setting = 'prong') 
  * しずく型の正規化輪郭 [-0.5,0.5] を生成（上が尖り・下が丸い）。
  * 左右対称。topTaper=上の尖り / bottomRoundness=下の丸み。
  */
-function teardropOutline(topTaper = 0.45, bottomRoundness = 0.78, n = 168): { x: number; y: number }[] {
+function teardropOutline(topTaper = 0.45, bottomRoundness = 0.78, n = 208): { x: number; y: number }[] {
   // 制御点でしずくを構成: 上頂点(0,1)、下は半径rの円弧、両側はベジェ
   const apex = { x: 0, y: 1 };
   const r = 0.5 * (0.7 + bottomRoundness * 0.3); // 下円の半径

@@ -68,10 +68,12 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
   const body = new THREE.ExtrudeGeometry(shape, {
     depth: p.thickness,
     bevelEnabled: true,
-    bevelSize: Math.min(0.22, p.thickness * 0.14),
-    bevelThickness: Math.min(0.22, p.thickness * 0.14),
-    bevelSegments: 8,
-    curveSegments: 128,
+    bevelSize: Math.min(0.2, p.thickness * 0.13),
+    bevelThickness: Math.min(0.2, p.thickness * 0.13),
+    // カスタム外形(teardrop等)の解像度は outline 点数(208)で決まる。curveSegmentsは
+    // disc/楕円など曲線シェイプ用なので適正値に（過剰だとtri数が爆発する）。
+    bevelSegments: 6,
+    curveSegments: 72,
   });
   body.translate(0, 0, -p.thickness / 2);
   body.computeVertexNormals();
@@ -191,7 +193,7 @@ function buildReliefMesh(p: PendantParams): THREE.BufferGeometry | null {
 
 /** 楕円リンク（ケーブルチェーンの1コマ）。tangent方向に長い楕円トーラス。 */
 function makeOvalLink(linkLen: number, linkWidth: number, wire: number): THREE.BufferGeometry {
-  const g = new THREE.TorusGeometry((linkLen + linkWidth) / 4, wire, 12, 30);
+  const g = new THREE.TorusGeometry((linkLen + linkWidth) / 4, wire, 16, 32);
   g.scale(linkLen / linkWidth, 1, 1); // ローカルX(=後でtangent)に伸ばし楕円に
   return g;
 }

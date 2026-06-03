@@ -83,10 +83,10 @@ function measurePartMinWall(geom: { attributes: any; index: any }): number | nul
     ]);
   }
   const n = tris.length;
-  const SAMPLES = Math.min(110, n);
+  const SAMPLES = Math.min(130, n);
   const stride = Math.max(1, Math.floor(n / SAMPLES));
   const EPS = 1e-3;
-  let minWall = Infinity;
+  const walls: number[] = [];
 
   for (let s = 0; s < n; s += stride) {
     const T = tris[s];
@@ -110,15 +110,18 @@ function measurePartMinWall(geom: { attributes: any; index: any }): number | nul
     let best = Infinity;
     for (let j = 0; j < n; j++) {
       if (j === s) continue;
+      // 高解像メッシュでは隣接三角形に極近距離で当たる（自己隣接ノイズ）。
+      // 実用上の最小肉厚(>~0.1mm)より小さい当たりは無視して反対面までを測る。
       const t = rayTri(ox, oy, oz, dx, dy, dz, tris[j]);
-      if (t !== null && t > EPS && t < best) best = t;
+      if (t !== null && t > 0.12 && t < best) best = t;
     }
-    if (best < minWall) minWall = best;
+    if (isFinite(best)) walls.push(best);
   }
 
-  // 0付近（自己交差ノイズ）と無限大は無効
-  if (!isFinite(minWall) || minWall < 0.05) return null;
-  return minWall;
+  if (walls.length === 0) return null;
+  // 絶対最小はベベルのナイフエッジ等の外れ値を拾うため、下位パーセンタイル（ロバスト最小）を採用。
+  walls.sort((a, b) => a - b);
+  return walls[Math.floor(walls.length * 0.08)];
 }
 
 /** Möller–Trumbore: レイと三角形の交差距離 t（無ければ null）。背面も拾う */
