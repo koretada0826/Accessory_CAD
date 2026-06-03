@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useDesignStore } from '@/store/useDesignStore';
+import { HelpHint } from '@/components/ui/HelpHint';
 
 const SUGGESTIONS = ['もう少し細く', '石を中央に', '13号にして', 'ゴシックに', '厚くして', 'ハートにして'];
 
@@ -28,6 +29,7 @@ export default function ChatPanel() {
       <div className="flex items-center gap-2 border-b border-ink-700 px-3 py-2">
         <span className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-gold-400 to-accent-500 text-[11px]">✦</span>
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">AIデザインアシスタント</h3>
+        <HelpHint text="「石を入れて」「13号に」「もっと細く」など、話し言葉で調整できます。下の候補をタップしてもOK。" side="left" />
       </div>
 
       <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto p-3">

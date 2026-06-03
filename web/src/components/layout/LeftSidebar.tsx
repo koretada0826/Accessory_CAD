@@ -6,6 +6,7 @@ import { CATEGORY_LABELS } from '@/lib/data/factory';
 import { FULLY_IMPLEMENTED, type Category } from '@/types/accessory';
 import { TEMPLATES } from '@/lib/data/templates';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
+import { HelpHint } from '@/components/ui/HelpHint';
 
 const PRIORITY: Category[] = ['pendant', 'ring', 'earrings', 'bracelet'];
 const OTHERS: Category[] = ['necklace', 'signet', 'stone_ring', 'band', 'hoop', 'earcuff', 'charm', 'dogtag'];
@@ -60,10 +61,13 @@ export default function LeftSidebar() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex gap-1 border-b border-ink-700 p-2">
+      <div className="flex items-center gap-1 border-b border-ink-700 p-2">
         <TabBtn id="category" label="カテゴリ" />
         <TabBtn id="upload" label="画像" />
         <TabBtn id="template" label="テンプレ" />
+        <span className="pl-0.5">
+          <HelpHint text="作りたい物の種類を『カテゴリ』から。手元の画像から起こすなら『画像』、完成例から始めるなら『テンプレ』。" />
+        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">

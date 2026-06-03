@@ -1,6 +1,7 @@
 'use client';
 
 import { useDesignStore } from '@/store/useDesignStore';
+import { HelpHint } from '@/components/ui/HelpHint';
 
 const SEVERITY_STYLE: Record<string, { dot: string; text: string; label: string }> = {
   error: { dot: 'bg-red-500', text: 'text-red-300', label: '要修正' },
@@ -14,7 +15,10 @@ export default function ManufacturingPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-ink-700 px-3 py-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">製造チェック</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">製造チェック</h3>
+          <HelpHint text="重量・原価の概算と、3Dプリント/鋳造の注意点を自動チェック。「要修正」が無ければそのまま工場に出せます。" />
+        </div>
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
             report.printable ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'

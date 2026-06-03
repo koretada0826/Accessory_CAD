@@ -6,6 +6,7 @@ import { Section, SliderField, Segmented, Toggle, Field } from '@/components/ui/
 import { MATERIAL_LIST } from '@/lib/data/materials';
 import { innerDiameterToJpSize, nearestJpSize } from '@/lib/data/ringSize';
 import { CATEGORY_LABELS } from '@/lib/data/factory';
+import { HelpHint } from '@/components/ui/HelpHint';
 import type { MaterialId } from '@/types/accessory';
 
 export default function PropertyPanel() {
@@ -22,7 +23,10 @@ export default function PropertyPanel() {
     <div className="flex h-full flex-col overflow-y-auto">
       {/* ヘッダ */}
       <div className="border-b border-ink-700 px-3 py-3">
-        <div className="text-[11px] uppercase tracking-wider text-ink-500">編集中</div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] uppercase tracking-wider text-ink-500">編集中</span>
+          <HelpHint text="スライダーでサイズ・厚み・素材を調整。名前はここで変更できます。迷ったら上部の『かんたん』モードを。" side="left" />
+        </div>
         <input
           value={design.name}
           onChange={(e) => commit((d) => void (d.name = e.target.value))}
