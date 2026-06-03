@@ -326,13 +326,44 @@ function buildForegroundMask(data: Uint8ClampedArray, W: number, H: number): { m
   grab(0, 0); grab(W - 6, 0); grab(0, H - 6); grab(W - 6, H - 6);
   const bg = [0, 1, 2].map((k) => corners.reduce((s, c) => s + c[k], 0) / corners.length);
 
-  const T = 52 * 52; // 色距離²の閾値
+  // 各画素の「背景色からの距離」を計算（0..~441）
+  const dist = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const idx = i * 4;
     const dr = data[idx] - bg[0], dg = data[idx + 1] - bg[1], db = data[idx + 2] - bg[2];
-    mask[i] = dr * dr + dg * dg + db * db > T ? 1 : 0;
+    dist[i] = Math.sqrt(dr * dr + dg * dg + db * db);
   }
+  // Otsu法で「背景/前景」を自動分離する閾値を決定（照明ムラ・低コントラストに強い）
+  const otsuT = otsuThreshold(dist, N);
+  const T = Math.max(otsuT, 28); // ノイズ下限
+  for (let i = 0; i < N; i++) mask[i] = dist[i] > T ? 1 : 0;
   return { mask, usedAlpha };
+}
+
+/** Otsu法: 値配列(0..maxVal)を2クラスに分ける閾値を返す */
+function otsuThreshold(values: Float32Array, n: number): number {
+  const BINS = 256;
+  const maxVal = 441.673; // sqrt(255^2*3)
+  const hist = new Float64Array(BINS);
+  for (let i = 0; i < n; i++) {
+    const b = Math.min(BINS - 1, Math.floor((values[i] / maxVal) * BINS));
+    hist[b]++;
+  }
+  let total = n, sum = 0;
+  for (let i = 0; i < BINS; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, maxVar = -1, threshBin = 0;
+  for (let i = 0; i < BINS; i++) {
+    wB += hist[i];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += i * hist[i];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > maxVar) { maxVar = between; threshBin = i; }
+  }
+  return (threshBin / BINS) * maxVal;
 }
 
 // ---------------------------------------------------------------------------
