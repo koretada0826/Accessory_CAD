@@ -101,3 +101,4 @@
 - [x] Blender風の360度ビュー：drei GizmoViewcube（面/辺/角クリックで視点スナップ）＋自動回転トグル＋全方位オービット(minPolar0/maxPolarπ)。FRONT面クリックで正面スナップを実機確認
 - 運用メモ: next dev はバックグラウンドでstdin EOFにより終了する → `tail -f /dev/null | PORT=3210 npm run dev` で常駐させる
 - iter(P2-3): ネックレスのチェーン表現。buildPendantでcategory==='necklace'時、バチカンから上へ2本のチェーン(交互にrotateX/Yで絡みを表現したトーラスリンク, 各18個)をV字状に生成。bounds高さも延長。実機で18×53mmのネックレス(ペンダント+チェーン)を確認。15テスト維持。
+- fix: ネックレスのチェーンを吊り穴/バチカンの接続点(bailConnect)から生やし、穴を通すジャンプリングで連結。宙に浮く問題を解消（ユーザー指摘）。実機確認。

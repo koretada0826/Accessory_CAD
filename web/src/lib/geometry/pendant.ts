@@ -15,6 +15,10 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
   const topY = p.height / 2;
 
   // 一体型吊り穴（本体に穴をあける）
+  // チェーン/吊り元の接続点（ネックレスのチェーンはここから生やす）
+  let bailConnectX = 0;
+  let bailConnectY = topY;
+
   if (p.bail.type === 'integrated_hole') {
     const r = p.bail.innerDiameter / 2;
     let holeCx = 0;
@@ -32,7 +36,11 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
         holeCx = NaN;
       }
     }
-    if (!Number.isNaN(holeCx)) shape.holes.push(circleHole(holeCx, holeY, r));
+    if (!Number.isNaN(holeCx)) {
+      shape.holes.push(circleHole(holeCx, holeY, r));
+      bailConnectX = holeCx;
+      bailConnectY = holeY; // チェーンは穴の中心から接続
+    }
   }
 
   // 装飾穴
@@ -58,6 +66,7 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
     const torus = new THREE.TorusGeometry(r, p.bail.wall, 16, 32);
     torus.translate(0, topY + r * 0.6, 0);
     parts.push({ id: 'bail', geometry: torus, role: 'metal', componentType: 'bail' });
+    bailConnectY = topY + r * 0.6 + r; // チェーンは丸カンの上から接続
   }
 
   // 石
@@ -75,27 +84,35 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
     }
   }
 
-  // ネックレス: バチカンから上へ2本のチェーンを生成
+  // ネックレス: 吊り穴/バチカンの接続点から上へ2本のチェーンを生成（ペンダントと連結）
   let chainRise = 0;
   if (design.category === 'necklace') {
     const tube = 0.45;
     const linkR = 1.4;
-    const topPt = topY + (p.bail.type === 'ring_bail' ? p.bail.innerDiameter : 1);
     const N = 18;
     const reach = Math.max(p.width, 20) * 0.7;
     const rise = Math.max(p.height, 22) * 1.6;
-    chainRise = rise;
+    chainRise = rise + (bailConnectY - topY) + linkR;
+
+    const addLink = (x: number, y: number, i: number, id: string) => {
+      const link = new THREE.TorusGeometry(linkR, tube, 8, 16);
+      // 交互に向きを変えて鎖の絡みを表現
+      if (i % 2 === 0) link.rotateY(Math.PI / 2);
+      else link.rotateX(Math.PI / 2);
+      link.translate(x, y, 0);
+      parts.push({ id, geometry: link, role: 'metal', componentType: 'bail' });
+    };
+
+    // 接続リング: 吊り穴/バチカンを通すジャンプリング（ペンダントと鎖をつなぐ）
+    addLink(bailConnectX, bailConnectY, 1, 'chain-connector');
+
+    // そこから2本のチェーンがV字に立ち上がる
     for (let side = -1; side <= 1; side += 2) {
       for (let i = 1; i <= N; i++) {
         const t = i / N;
-        const x = side * Math.sin((t * Math.PI) / 2) * reach;
-        const y = topPt + t * rise;
-        const link = new THREE.TorusGeometry(linkR, tube, 8, 16);
-        // 交互に向きを変えて鎖の絡みを表現
-        if (i % 2 === 0) link.rotateY(Math.PI / 2);
-        else link.rotateX(Math.PI / 2);
-        link.translate(x, y, 0);
-        parts.push({ id: `chain-${side}-${i}`, geometry: link, role: 'metal', componentType: 'bail' });
+        const x = bailConnectX + side * Math.sin((t * Math.PI) / 2) * reach;
+        const y = bailConnectY + t * rise;
+        addLink(x, y, i, `chain-${side}-${i}`);
       }
     }
   }
