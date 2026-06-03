@@ -84,7 +84,7 @@
 ### 工場に渡せる品質
 - [x] STEP出力に石座(ベゼル)・刻印を反映（cad.py: 石→覆輪カラー石座をunion、刻印→前面に凹/凸でtext反映。日本語等フォント非対応はガードでスキップし本体STEPは維持）。石+LOVE刻印で19.5KB STEPをサーバー経由で実機確認
 - [x] シグネット/ドームの刻印（リングトップに刻印）。3D=EngravingDecalを印台/ドーム上面対応、編集=刻印エディタをリングでも表示、STEP=cad.py _ring印台上面に反映。※P2-11 でtext() cut=引数の潜在バグ(ペンダント刻印もSTEP未反映)も修正
-- [ ] 公差・最小肉厚の実測measureを警告に反映
+- [x] 最小肉厚の実測measureを警告に反映（レイキャストMöller–Trumboreで実メッシュの最小肉厚を測定→規定割れでwarning＋情報行に表示）※P2-12
 
 ### カテゴリ品質（他ツールに劣らない）
 - [x] ネックレス（チェーン表現）。category=necklace時にバチカンから上へ2本のチェーン(交互向きの絡みリンク)をV字生成。ペンダント＋チェーンの本物のネックレスを実機確認
@@ -110,3 +110,4 @@
 - iter(P2-9): 装飾穴のドラッグ移動。store.moveHole(moveStoneと対称)を追加、Viewerに穴の透明グラブハンドル＋ドラッグ状態を石/穴で共通化。吊り穴(bail)はチェーン接続点ゆえ固定、装飾/機能穴のみ可動。ContextTipも更新。typecheck/15テスト合格。
 - iter(P2-10): 画像からのバチカン検出。imageContour.detectBail(前景の行スパンから「くびれ→ループ」を解析し丸カン/チューブ種別・位置・通し穴径を推定)。analyzeImageで上部穴をrole=bailに格上げ、突起検出時はループ中心へ通し穴を配置(custom outlineと二重化しないようトーラス非追加)。合成マスクのテスト2件追加。typecheck/17テスト合格。
 - iter(P2-11): シグネット/ドーム刻印。EngravingDecalをペンダント前面＋リング印台/ドーム上面に対応、PropertyPanelの刻印エディタをリングでも表示し面寸法でスライダー範囲切替。cad.py _ringの印台上面(+Z)へ刻印反映。bugfix: text()のcut=引数誤りでP2-5以降ペンダント刻印もSTEP未反映だった→combine=Falseに修正。印台+120KB/ペンダント+191KBの幾何差をcadquery2.7で検証。typecheck/17テスト合格。
+- iter(P2-12): 最小肉厚の実測measure。meshHealth.measurePartMinWall(三角形重心から内向きレイ→反対面までの距離をMöller–Trumboreで実測, サンプル上限110)。check.tsで規定割れ時warning＋情報行に実測最小肉厚を表示。円盤=厚み付近/極薄検出のテスト2件追加。typecheck/19テスト合格。
