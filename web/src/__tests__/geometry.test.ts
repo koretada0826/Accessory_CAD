@@ -74,6 +74,16 @@ describe('geometry.buildModel', () => {
     expect(zmax).toBeGreaterThan(d.params.kind === 'pendant' ? d.params.thickness / 2 : 0);
   });
 
+  it('ミル打ち: milgrain有効なリングは粒飾りパーツを生成する', () => {
+    const d = createDesign('ring');
+    if (d.params.kind === 'ring') d.params.milgrain = true;
+    const model = buildModel(d);
+    const mil = model.parts.filter((p) => p.id.startsWith('milgrain'));
+    expect(mil.length).toBeGreaterThan(0);
+    const pos = mil[0].geometry.getAttribute('position');
+    expect(Number.isFinite(pos.getX(0))).toBe(true);
+  });
+
   it('estimateVolumeMm3 は正の体積を返す', () => {
     for (const c of CATS) {
       expect(estimateVolumeMm3(createDesign(c))).toBeGreaterThan(0);

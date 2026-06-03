@@ -114,6 +114,11 @@ export default function PropertyPanel() {
               ]}
             />
           </div>
+          <Toggle
+            label="ミル打ち（縁の粒飾り）"
+            checked={!!p.milgrain}
+            onChange={(v) => commit((d) => { if (d.params.kind === 'ring') d.params.milgrain = v; })}
+          />
           <div>
             <div className="mb-1 text-xs text-ink-300/90">トップ</div>
             <Segmented

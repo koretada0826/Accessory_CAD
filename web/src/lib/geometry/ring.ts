@@ -7,6 +7,7 @@ import {
   knifeProfile,
   makeBezel,
   makeGem,
+  makeMilgrain,
   makeProngs,
   rectProfile,
   sweepProfile,
@@ -41,8 +42,17 @@ export function buildRing(design: AccessoryDesign, p: RingParams): BuiltModel {
       profile = rectProfile(p.bandThickness, p.bandWidth, 0.15);
       break;
   }
-  const band = sweepProfile(profile, centerR, 180);
+  const band = sweepProfile(profile, centerR, 220);
   parts.push({ id: 'shank', geometry: band, role: 'metal', componentType: 'shank' });
+
+  // ミル打ち（高級仕上げ）: バンド両縁の外周に粒飾りを回す
+  if (p.milgrain) {
+    const bR = Math.min(0.22, p.bandWidth * 0.12);
+    for (const z of [p.bandWidth / 2 - bR * 0.4, -p.bandWidth / 2 + bR * 0.4]) {
+      const mil = makeMilgrain(outerR - bR * 0.3, z, bR);
+      parts.push({ id: `milgrain-${z > 0 ? 'a' : 'b'}`, geometry: mil, role: 'metal', componentType: 'shank' });
+    }
+  }
 
   // --- トップ（リング上部 +Y 方向に配置） ---
   const topBaseY = outerR; // バンド外周に着座
@@ -88,6 +98,12 @@ export function buildRing(design: AccessoryDesign, p: RingParams): BuiltModel {
       const bezel = makeBezel(d);
       bezel.translate(0, seatY + d * 0.12, 0);
       parts.push({ id: 'bezel', geometry: bezel, role: 'metal', componentType: 'bezel' });
+      if (p.milgrain) {
+        const mil = makeMilgrain(d / 2 + 0.5, 0, 0.18);
+        mil.rotateX(Math.PI / 2); // 軸を+Yへ
+        mil.translate(0, seatY + d * 0.32, 0);
+        parts.push({ id: 'bezel-milgrain', geometry: mil, role: 'metal', componentType: 'bezel' });
+      }
     } else {
       const prongs = makeProngs(d, d >= 5 ? 6 : 4);
       prongs.translate(0, seatY + d * 0.12, 0);

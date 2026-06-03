@@ -197,6 +197,8 @@ export interface RingParams {
   bandWidth: number;
   bandThickness: number;
   profile: RingProfile;
+  /** ミル打ち（縁の粒飾り）を入れる高級仕上げ */
+  milgrain?: boolean;
   top: {
     type: RingTopType;
     width: number;

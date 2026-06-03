@@ -206,6 +206,26 @@ export function makeGem(d: number, cut: string = 'round'): THREE.BufferGeometry 
 }
 
 /**
+ * ミル打ち（ミルグレイン）。円周に沿って並ぶ微小な金属の粒。
+ * 高級ジュエリーの象徴的な縁飾り。XY平面の半径 R・高さ z に粒を並べる。
+ * 呼び出し側で必要に応じ回転・移動する。
+ */
+export function makeMilgrain(R: number, z: number, beadR = 0.2): THREE.BufferGeometry {
+  const circumference = 2 * Math.PI * R;
+  const count = Math.max(16, Math.min(220, Math.round(circumference / (beadR * 2.1))));
+  const geos: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2;
+    const b = new THREE.SphereGeometry(beadR, 7, 6);
+    b.translate(Math.cos(a) * R, Math.sin(a) * R, z);
+    geos.push(b);
+  }
+  const merged = mergeGeometries(geos, false)!;
+  merged.computeVertexNormals();
+  return merged;
+}
+
+/**
  * 覆輪（ベゼル）の石座。石のガードルを抱える、わずかにテーパーした金属の壁。
  * 正準向き: 石の軸＝+Y / ガードル面 y=0 / テーブル上。呼び出し側で回転・移動する。
  */

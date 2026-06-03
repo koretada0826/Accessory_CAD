@@ -39,6 +39,8 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
       if (pat.type === 'hammered') patternRoughness = 0.4 + pat.intensity * 0.2;
       else if (pat.type === 'brushed') patternRoughness = 0.5 + pat.intensity * 0.25;
       else if (pat.type === 'gothic') patternRoughness = 0.45;
+    } else if (mat.metalness > 0.5) {
+      patternRoughness = mat.roughness * 0.6; // 模様なしの金属は鏡面寄りに研磨
     }
     return { model, mat, patternRoughness };
   }, [design]);
@@ -91,13 +93,17 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
               if (comp) selectComponent(comp.id);
             }}
           >
-            <meshStandardMaterial
+            <meshPhysicalMaterial
               color={highlighted ? new THREE.Color(mat.color).lerp(new THREE.Color('#ffffff'), 0.15) : mat.color}
               metalness={mat.metalness}
               roughness={patternRoughness}
+              // 鏡面研磨の質感: クリアコートで表面に薄い艶、強い環境反射で金属の映り込みを出す
+              clearcoat={mat.metalness > 0.5 ? 0.6 : 0}
+              clearcoatRoughness={0.08}
+              reflectivity={0.6}
+              envMapIntensity={mat.metalness > 0.5 ? 2.4 : 1.2}
               emissive={highlighted ? new THREE.Color('#e6c068') : new THREE.Color('#000000')}
               emissiveIntensity={highlighted ? 0.25 : 0}
-              envMapIntensity={1.2}
               wireframe={wireframe}
             />
           </mesh>
@@ -301,12 +307,16 @@ export default function Viewer() {
         {/* 手続き的な環境光（CDN不要・オフライン可）で金属を綺麗に映す。
             万一サスペンドしてもモデル/グリッドを巻き込まないよう独立Suspenseで隔離 */}
         <Suspense fallback={null}>
-          <Environment resolution={256}>
+          <Environment resolution={512}>
             <group>
-              <Lightformer form="rect" intensity={3} position={[0, 8, 6]} scale={[10, 6, 1]} color="#ffffff" />
-              <Lightformer form="rect" intensity={2} position={[-8, 4, -6]} scale={[8, 8, 1]} color="#ffe9c0" />
-              <Lightformer form="rect" intensity={1.5} position={[8, 2, -6]} scale={[8, 8, 1]} color="#cfe0ff" />
-              <Lightformer form="ring" intensity={2} position={[0, -6, 8]} scale={[6, 6, 1]} color="#ffffff" />
+              {/* 大きな面光源＝金属に映る柔らかな明部 */}
+              <Lightformer form="rect" intensity={4} position={[0, 9, 7]} scale={[12, 7, 1]} color="#ffffff" />
+              <Lightformer form="rect" intensity={2.4} position={[-9, 4, -6]} scale={[9, 9, 1]} color="#ffeccf" />
+              <Lightformer form="rect" intensity={1.8} position={[9, 2, -6]} scale={[9, 9, 1]} color="#cfe0ff" />
+              {/* 細い帯＝研磨面に走る鋭いハイライトの筋（高級感の核） */}
+              <Lightformer form="rect" intensity={7} position={[-4, 7, 5]} rotation={[0, 0, Math.PI / 5]} scale={[0.6, 9, 1]} color="#ffffff" />
+              <Lightformer form="rect" intensity={5} position={[5, 5, 4]} rotation={[0, 0, -Math.PI / 6]} scale={[0.5, 8, 1]} color="#ffffff" />
+              <Lightformer form="ring" intensity={2.5} position={[0, -6, 8]} scale={[6, 6, 1]} color="#ffffff" />
             </group>
           </Environment>
         </Suspense>
