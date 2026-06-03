@@ -34,6 +34,16 @@ export interface DetectedStone {
   color: string;
 }
 
+export interface DetectedBail {
+  /** ループ中心（外形中心基準・y-up・mm） */
+  xMm: number;
+  yMm: number;
+  /** 推定種別。明確なループ=ring_bail / 細い首=tube */
+  type: 'ring_bail' | 'tube';
+  /** 通し穴の推定内径 mm */
+  innerDiameterMm: number;
+}
+
 export interface ContourResult {
   /** 単位ボックス[-0.5,0.5]・y-up の正規化頂点列 */
   outline: { x: number; y: number }[];
@@ -45,6 +55,8 @@ export interface ContourResult {
   holes: DetectedHole[];
   /** 検出した石（金属色と異なる彩度の高い領域） */
   stones: DetectedStone[];
+  /** 上部の突起バチカン（くびれ＋ループ）。検出時のみ */
+  bail: DetectedBail | null;
   /** 製造可能性のため面取りした鋭利な角の数 */
   correctedCorners: number;
   /** 元画像に重ねる輪郭プレビュー（SVG path・処理座標系） */
@@ -144,6 +156,17 @@ export async function extractContour(
     }))
     .filter((s) => s.diameterMm >= 1.5 && s.diameterMm <= Math.max(widthMm, heightMm) * 0.6);
 
+  // 上部の突起バチカン（くびれ→ループ）を検出
+  const bailPx = detectBail(comp.mask, W, H);
+  const bail: DetectedBail | null = bailPx
+    ? {
+        xMm: Math.round(((bailPx.cx - cx) / bw) * widthMm * 10) / 10,
+        yMm: Math.round((-(bailPx.cy - cy) / bh) * heightMm * 10) / 10,
+        type: bailPx.type,
+        innerDiameterMm: Math.max(1.2, Math.round(bailPx.innerDiaPx * mmPerPx * 10) / 10),
+      }
+    : null;
+
   return {
     outline,
     widthMm,
@@ -152,6 +175,7 @@ export async function extractContour(
     symmetryScore: Math.round(symmetryScore * 100) / 100,
     holes,
     stones,
+    bail,
     correctedCorners,
     overlayPath,
     imgW: W,
@@ -270,6 +294,75 @@ function detectEnclosedHoles(comp: Uint8Array, W: number, H: number): { cx: numb
     holes.push({ cx: sx / area, cy: sy / area, area });
   }
   return holes;
+}
+
+/**
+ * 上部の突起バチカンを検出する。
+ * 行ごとの前景スパン（幅）を取り、上部に「本体より十分細いくびれ」があり、
+ * その上にループ状の膨らみが乗る形（首→輪）をバチカンと判定する。
+ * 返すのは px 座標（呼び出し側で mm/正規化へ変換）。
+ */
+export function detectBail(
+  mask: Uint8Array,
+  W: number,
+  H: number
+): { cx: number; cy: number; type: 'ring_bail' | 'tube'; innerDiaPx: number } | null {
+  // bbox と 行スパン（left/right/center/幅）を算出
+  let minY = H, maxY = -1, minX = W, maxX = -1;
+  const left = new Int32Array(H).fill(-1);
+  const right = new Int32Array(H).fill(-1);
+  for (let y = 0; y < H; y++) {
+    let l = -1, r = -1;
+    const row = y * W;
+    for (let x = 0; x < W; x++) {
+      if (mask[row + x]) { if (l < 0) l = x; r = x; }
+    }
+    left[y] = l; right[y] = r;
+    if (l >= 0) {
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      if (l < minX) minX = l;
+      if (r > maxX) maxX = r;
+    }
+  }
+  const bh = maxY - minY;
+  if (bh < 20) return null;
+  const span = (y: number) => (left[y] < 0 ? 0 : right[y] - left[y] + 1);
+
+  // 本体幅 = 下70%領域のスパン中央値ベースの最大
+  let bodyWidth = 0;
+  for (let y = minY + Math.round(bh * 0.3); y <= maxY; y++) bodyWidth = Math.max(bodyWidth, span(y));
+  if (bodyWidth < 6) return null;
+
+  // 上部35%でくびれ（最小スパン行）を探す
+  const topEnd = minY + Math.round(bh * 0.38);
+  let pinchY = -1, pinchSpan = Infinity;
+  for (let y = minY + 2; y <= topEnd; y++) {
+    const s = span(y);
+    if (s > 0 && s < pinchSpan) { pinchSpan = s; pinchY = y; }
+  }
+  if (pinchY < 0) return null;
+
+  // くびれは本体より十分細い必要がある
+  if (pinchSpan > bodyWidth * 0.42) return null;
+  // くびれの上にループ（膨らみ）があること
+  let loopWidth = 0, loopY = minY;
+  for (let y = minY; y < pinchY; y++) {
+    const s = span(y);
+    if (s > loopWidth) { loopWidth = s; loopY = y; }
+  }
+  // ループは くびれより太く、最低限の高さ（突起らしさ）を持つ
+  if (loopWidth < pinchSpan * 1.15 || loopWidth < 4) return null;
+  if (pinchY - minY < Math.max(4, bh * 0.05)) return null;
+  // ループは本体ほど太くない（=独立した突起）こと
+  if (loopWidth > bodyWidth * 0.6) return null;
+
+  const cx = (left[loopY] + right[loopY]) / 2;
+  const cy = (minY + pinchY) / 2;
+  // 明確な輪（くびれの1.6倍以上太い）→ ring_bail、ほぼ一定の細い首→ tube
+  const type = loopWidth > pinchSpan * 1.6 ? 'ring_bail' : 'tube';
+  const innerDiaPx = Math.max(2, loopWidth * 0.42);
+  return { cx, cy, type, innerDiaPx };
 }
 
 // ---------------------------------------------------------------------------

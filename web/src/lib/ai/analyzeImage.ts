@@ -99,18 +99,31 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
         design.params.cornerRadius = 0;
         design.params.bail = { type: 'integrated_hole', innerDiameter: 3, wall: 1.6 };
 
-        // 検出した内部穴（くり抜き）を反映
+        // 検出した内部穴（くり抜き）を反映。上部の穴は吊り穴(bail)として扱う
         const topHole = contour.holes.find((h) => h.isTop);
         for (const h of contour.holes) {
           design.holes.push({
             id: nanoid(8),
-            role: 'decoration',
+            role: h.isTop ? 'bail' : 'decoration',
             diameter: h.diameterMm,
             position: { x: h.xMm, y: h.yMm },
           });
         }
-        // 上部の穴があれば、それを吊り穴として使う（合成バチカンは無効化）
-        if (topHole) design.params.bail.type = 'none';
+        if (topHole) {
+          // 上部の穴があれば、それを吊り穴として使う（合成バチカンは無効化）
+          design.params.bail.type = 'none';
+        } else if (contour.bail) {
+          // 上部の突起をバチカンと判定。外形に既に含まれるため別途トーラスは足さず、
+          // ループ中心に通し穴(role=bail)を開けて実際に通せる輪にする。
+          design.params.bail.type = 'none';
+          design.params.bail.innerDiameter = contour.bail.innerDiameterMm;
+          design.holes.push({
+            id: nanoid(8),
+            role: 'bail',
+            diameter: contour.bail.innerDiameterMm,
+            position: { x: contour.bail.xMm, y: contour.bail.yMm },
+          });
+        }
 
         // 検出した石を反映
         for (const st of contour.stones) {
@@ -132,6 +145,11 @@ export async function analyzeImage(dataUrl: string): Promise<AnalyzeResult> {
       if (contour.holes.length > 0) {
         const topHole = contour.holes.find((h) => h.isTop);
         features.push(`内部穴 ${contour.holes.length}個を検出${topHole ? '（上部を吊り穴と判定）' : ''}`);
+        if (!topHole && contour.bail) {
+          features.push(`上部の突起をバチカン（${contour.bail.type === 'ring_bail' ? '丸カン' : 'チューブ'}）と判定→通し穴を配置`);
+        }
+      } else if (contour.bail) {
+        features.push(`上部の突起をバチカン（${contour.bail.type === 'ring_bail' ? '丸カン' : 'チューブ'}）と判定→通し穴を配置`);
       } else {
         features.push('上部に吊り穴を自動配置');
       }
