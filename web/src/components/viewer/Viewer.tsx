@@ -293,6 +293,37 @@ function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetN
   return null;
 }
 
+/**
+ * マネキン（首・肩・胸のバスト）を手続き生成し、ネックレスを着用しているように見せる。
+ * 汎用着用ルーター: 現状は neck（ネックレス/ペンダント）に対応。
+ * ネックレスは原点(ペンダント)から上にチェーンが伸びる前提で、首の開口に合わせて配置。
+ */
+function MannequinBust() {
+  const design = useDesignStore((s) => s.design);
+  const p = design.params;
+  if (p.kind !== 'pendant') return null;
+  const pendH = p.height, pendW = p.width;
+  const chainLen = Math.max(pendH * 2.6, 46);
+  const halfW = Math.max(pendW * 1.35, 18);
+  const neckR = halfW * 0.72;
+  const neckCY = chainLen * 0.92;
+  const matte = { color: '#cdc8bd', roughness: 0.92, metalness: 0.0 } as const;
+  return (
+    <group position={[0, 0, -neckR * 0.75]}>
+      {/* 首 */}
+      <mesh position={[0, neckCY, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[neckR * 0.88, neckR * 1.05, chainLen * 0.6, 48, 1]} />
+        <meshStandardMaterial {...matte} />
+      </mesh>
+      {/* 肩〜胸（扁平ドーム: 幅広・厚み控えめ） */}
+      <mesh position={[0, chainLen * 0.34, -neckR * 0.2]} scale={[halfW * 2.1, chainLen * 0.55, neckR * 1.1]} castShadow receiveShadow>
+        <sphereGeometry args={[1, 56, 36, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
+        <meshStandardMaterial {...matte} />
+      </mesh>
+    </group>
+  );
+}
+
 function DimensionLabel() {
   const design = useDesignStore((s) => s.design);
   const b = useMemo(() => buildModel(design).bounds, [design]);
@@ -306,8 +337,8 @@ function DimensionLabel() {
 }
 
 export default function Viewer() {
-  // 表示モード: hero=広告レンダー(DoF/反射床/被写界深度) / edit=編集(グリッド/寸法/くっきり)
-  const [view, setView2] = useState<'hero' | 'edit'>('hero');
+  // 表示モード: hero=広告レンダー / edit=編集 / wear=マネキン着用プレビュー
+  const [view, setView2] = useState<'hero' | 'edit' | 'wear'>('hero');
   const [focus, setFocus] = useState<'full' | 'pendant'>('full');
   const [wireframe, setWireframe] = useState(false);
   const [grid, setGrid] = useState(false);
@@ -315,7 +346,8 @@ export default function Viewer() {
   const [preset, setPreset] = useState<ViewPreset>('persp');
   const [nonce, setNonce] = useState(0);
   const [spin, setSpin] = useState(false);
-  const hero = view === 'hero';
+  const hero = view !== 'edit'; // hero / wear は高品質レンダー、edit はくっきり編集
+  const wearing = view === 'wear';
 
   // R3F は flexbox 内で初回サイズを 0 と測定し、GLルート生成を遅延することがある
   // （ResizeObserver の初回コールバックが取りこぼされるケース）。
@@ -349,11 +381,12 @@ export default function Viewer() {
       <div className="glass pointer-events-auto absolute left-3 top-3 z-10 flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
         <Btn active={view === 'edit'} onClick={() => setView2('edit')} title="編集ビュー（グリッド・寸法・くっきり表示）">編集</Btn>
         <Btn active={view === 'hero'} onClick={() => setView2('hero')} title="ヒーローレンダー（広告のような高画質）">ヒーロー</Btn>
-        {hero && (
+        <Btn active={view === 'wear'} onClick={() => setView2('wear')} title="マネキン着用プレビュー">着用</Btn>
+        {view === 'hero' && (
           <>
             <div className="mx-1 h-5 w-px bg-white/10" />
-            <Btn active={focus === 'full'} onClick={() => setFocus('full')} title="ネックレス全体">全体</Btn>
-            <Btn active={focus === 'pendant'} onClick={() => setFocus('pendant')} title="ペンダント寄り">寄り</Btn>
+            <Btn active={focus === 'full'} onClick={() => setFocus('full')} title="全体">全体</Btn>
+            <Btn active={focus === 'pendant'} onClick={() => setFocus('pendant')} title="寄り">寄り</Btn>
           </>
         )}
       </div>
@@ -396,12 +429,13 @@ export default function Viewer() {
           <Environment files={studioHdri as string} environmentIntensity={0.95} resolution={2048} />
         </Suspense>
 
-        <CameraRig preset={preset} presetNonce={nonce} focus={focus} />
+        <CameraRig preset={preset} presetNonce={nonce} focus={wearing ? 'full' : focus} />
         <AccessoryMeshes wireframe={wireframe} />
+        {wearing && <MannequinBust />}
         {dims && <DimensionLabel />}
 
         {/* 反射フロア（製品写真風の艶のある黒床に作品が映り込む。ヒーロー時のみ） */}
-        {hero && !grid && (
+        {hero && !grid && !wearing && (
           <mesh position={[0, -12.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[400, 400]} />
             <MeshReflectorMaterial

@@ -227,21 +227,37 @@ function buildNecklaceLayout(
     parts.push({ id, geometry: link, role: 'metal', componentType: 'bail' });
   };
 
-  // 縦長オーバル: 横半径a・縦半径b。最下点(θ=0)を (cx,cy)＝ペンダント接続点に。
-  // 参考画像の比率に合わせる（全体縦長aspect~0.65 / ペンダントが全高の~45% / 重心75%下）。
-  const a = Math.max(pendantW * 1.12, 14.5);
-  const b = Math.max(pendantH * 0.6, 11.5);
-  const ovalCy = cy + b;
-  const per = Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
-  const N = Math.max(120, Math.round(per / step));
-  const gap = 2; // 最下部に小ギャップ（ペンダント接続部）
-  for (let i = 0; i < N; i++) {
-    if (i < gap || i > N - gap) continue;
-    const th = (i / N) * Math.PI * 2; // 0=最下点, π=最上点
-    const x = cx + a * Math.sin(th);
-    const y = ovalCy - b * Math.cos(th);
-    const ang = Math.atan2(b * Math.sin(th), a * Math.cos(th)); // 楕円の接線
-    placeLink(x, y, ang, i % 2, `chain-${i}`);
+  // ネックライン型ループ: 下=ペンダント接続点(cx,cy)、上に向かって広がり首元で開く“長いネックレス”。
+  // 短い輪ではなく、首にかけて胸元にトップが落ちる自然な縦長シルエット。
+  const chainLen = Math.max(pendantH * 2.6, 46); // 縦の長さ（首元→胸元）
+  const halfW = Math.max(pendantW * 1.35, 18); // 首元の開きの半幅
+  const arcBulge = halfW * 0.55; // 首の後ろ側カーブの膨らみ
+  const topY = cy + chainLen;
+
+  // 閉ループのパス（左辺 下→上 / 上アーク 左→右 / 右辺 上→下）
+  const path: { x: number; y: number }[] = [];
+  const SIDE = 90;
+  for (let i = 0; i <= SIDE; i++) { const t = i / SIDE; path.push({ x: cx - halfW * Math.pow(t, 0.72), y: cy + chainLen * t }); }
+  const arcN = 34;
+  for (let i = 1; i < arcN; i++) { const a = Math.PI * (1 - i / arcN); path.push({ x: cx + halfW * Math.cos(a), y: topY + arcBulge * Math.sin(a) }); }
+  for (let i = 0; i <= SIDE; i++) { const t = 1 - i / SIDE; path.push({ x: cx + halfW * Math.pow(t, 0.72), y: cy + chainLen * t }); }
+
+  // 弧長で等間隔にリンク配置（最下部に小ギャップ＝ペンダント接続部）
+  const cum = [0];
+  for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y));
+  const totalLen = cum[cum.length - 1];
+  const gapLen = step * 1.6;
+  let idx = 1, k = 0;
+  for (let s = gapLen; s < totalLen - gapLen; s += step) {
+    while (idx < cum.length && cum[idx] < s) idx++;
+    const i0 = Math.max(1, idx);
+    const A = path[i0 - 1], B = path[i0];
+    const segLen = Math.max(1e-3, cum[i0] - cum[i0 - 1]);
+    const tt = (s - cum[i0 - 1]) / segLen;
+    const x = A.x + (B.x - A.x) * tt, y = A.y + (B.y - A.y) * tt;
+    const ang = Math.atan2(B.y - A.y, B.x - A.x);
+    placeLink(x, y, ang, k % 2, `chain-${k}`);
+    k++;
   }
 
   // ペンダント接続のジャンプリング
@@ -250,7 +266,7 @@ function buildNecklaceLayout(
   jr.translate(cx, cy + 0.6, 0);
   parts.push({ id: 'chain-connector', geometry: jr, role: 'metal', componentType: 'bail' });
 
-  const topY = ovalCy + b;
+  const apexY = topY + arcBulge;
 
   // 丸カン（jump ring）: チェーン上端と留め具/アジャスターを繋ぐ小リング（省略しない）
   const jumpRing = (x: number, y: number, id: string) => {
@@ -259,23 +275,23 @@ function buildNecklaceLayout(
     g.translate(x, y, 0);
     parts.push({ id, geometry: g, role: 'metal', componentType: 'bail' });
   };
-  jumpRing(cx - 0.5, topY, 'jumpring-clasp');
-  jumpRing(cx + 0.6, topY, 'jumpring-ext');
+  jumpRing(cx - 0.5, apexY, 'jumpring-clasp');
+  jumpRing(cx + 0.6, apexY, 'jumpring-ext');
 
-  // 上部中央: 引き輪(spring ring clasp)
+  // 上部中央(首の後ろ): 引き輪(spring ring clasp)
   const ring = new THREE.TorusGeometry(1.3, 0.3, 14, 36, Math.PI * 1.7);
   ring.rotateY(Math.PI / 2);
-  ring.translate(cx - 1.6, topY + 0.2, 0);
+  ring.translate(cx - 1.6, apexY + 0.2, 0);
   parts.push({ id: 'clasp', geometry: ring, role: 'metal', componentType: 'bail' });
 
   // アジャスター数コマ＋エンドタグ（上部やや右）
-  for (let i = 0; i < 6; i++) placeLink(cx + 1.6, topY + 0.2 + i * step, Math.PI / 2, i % 2, `extender-${i}`);
+  for (let i = 0; i < 6; i++) placeLink(cx + 1.6, apexY + 0.2 + i * step, Math.PI / 2, i % 2, `extender-${i}`);
   const tag = new THREE.SphereGeometry(0.6, 18, 14);
   tag.scale(0.7, 1.15, 0.5);
-  tag.translate(cx + 1.6, topY + 0.2 + 6 * step + 0.5, 0);
+  tag.translate(cx + 1.6, apexY + 0.2 + 6 * step + 0.5, 0);
   parts.push({ id: 'end-tag', geometry: tag, role: 'metal', componentType: 'bail' });
 
-  return { parts, topY: topY + 6 * step + 1 };
+  return { parts, topY: apexY + 6 * step + 1 };
 }
 
 /**
