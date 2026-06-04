@@ -271,12 +271,13 @@ function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetN
     // wear=着用時はペンダント＋胸元に寄せてアクセサリーを大きく見せる（少し上を注視）
     const isPendant = focus === 'pendant';
     const isWear = focus === 'wear';
+    // 全体ビューは、上のツールバーで上端が切れないよう少し引き＋注視点を上げて構図を下げる
     const target = isPendant
       ? new THREE.Vector3(0, 0, 0)
       : isWear
         ? new THREE.Vector3(0, pendantDim * 0.25, 0)
-        : center;
-    const d = isPendant ? pendantDim * 2.3 : isWear ? pendantDim * 3.4 : fullDim * 2.05;
+        : new THREE.Vector3(center.x, center.y + fullDim * 0.1, center.z);
+    const d = isPendant ? pendantDim * 2.3 : isWear ? pendantDim * 3.4 : fullDim * 2.35;
     const pos: Record<ViewPreset, [number, number, number]> = {
       persp: [target.x + d * 0.62, target.y + d * 0.48, target.z + d * 0.92],
       front: [target.x, target.y, target.z + d],
