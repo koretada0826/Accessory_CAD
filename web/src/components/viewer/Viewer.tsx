@@ -9,6 +9,7 @@ import studioHdri from '@pmndrs/assets/hdri/studio.exr';
 import * as THREE from 'three';
 import { useDesignStore } from '@/store/useDesignStore';
 import { buildModel } from '@/lib/geometry';
+import { buildWornNecklace } from '@/lib/geometry/pendant';
 import { MATERIALS } from '@/lib/data/materials';
 import EngravingDecal from './EngravingDecal';
 
@@ -52,8 +53,8 @@ function makeMicroRoughTexture(): THREE.Texture {
   return tex;
 }
 
-/** 構造JSON → メッシュ群。選択パーツをハイライト */
-function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
+/** 構造JSON → メッシュ群。選択パーツをハイライト。worn=着用専用ジオメトリ */
+function AccessoryMeshes({ wireframe, worn = false }: { wireframe: boolean; worn?: boolean }) {
   const design = useDesignStore((s) => s.design);
   const selectedId = useDesignStore((s) => s.selectedComponentId);
   const components = design.components;
@@ -72,7 +73,10 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
   const pt = params.kind === 'pendant' ? params.thickness : 0;
 
   const { model, mat, patternRoughness } = useMemo(() => {
-    const model = buildModel(design);
+    // 着用時は商品ネックレスを流用せず、着用専用ジオメトリ（ペンダント胸元＋体前のU字チェーン）
+    const model = worn && design.category === 'necklace'
+      ? { parts: buildWornNecklace(design), bounds: buildModel(design).bounds }
+      : buildModel(design);
     const mat = MATERIALS[design.materialId];
     const pat = design.patterns[0];
     let patternRoughness = mat.roughness;
@@ -85,7 +89,7 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
       patternRoughness = Math.max(0.11, mat.roughness * 0.62);
     }
     return { model, mat, patternRoughness };
-  }, [design]);
+  }, [design, worn]);
 
   // 金属の微細な反射差テクスチャ（一度だけ生成し全金属で共有）
   const microRough = useMemo(() => {
@@ -318,8 +322,8 @@ function MannequinBust({ style }: { style: 'mannequin' | 'model' }) {
   const neckBaseY = chainLen * 0.78; // 首の付け根（チェーン開口より少し下）
   const chestCY = neckBaseY - chestHalfH * 0.72; // 胸の中心
   const depthHalf = neckR * 1.3; // 前後の厚み
-  // 前面を z≈-1.2 に置く＝ネックレス(z>=-0.5)が必ず体の前。内部への貫通を防ぐ
-  const backZ = (d: number) => -(d + 1.2);
+  // 前面を z≈-1.6 に置く＝ネックレス(z>=-1.1)が必ず体の前。内部への貫通を防ぐ(余裕0.5)
+  const backZ = (d: number) => -(d + 1.6);
 
   return (
     <group>
@@ -362,11 +366,6 @@ function DimensionLabel() {
 }
 
 export default function Viewer() {
-  const designForWear = useDesignStore((s) => s.design);
-  // 着用時にペンダントを自然に下へ落とす量（チェーン長に比例）
-  const wearDrop = designForWear.params.kind === 'pendant'
-    ? -Math.max(designForWear.params.height * 2.6, 46) * 0.12
-    : 0;
   // 表示モード: hero=広告レンダー / edit=編集 / wear=マネキン着用プレビュー
   const [view, setView2] = useState<'hero' | 'edit' | 'wear'>('hero');
   const [focus, setFocus] = useState<'full' | 'pendant'>('full');
@@ -468,10 +467,8 @@ export default function Viewer() {
         </Suspense>
 
         <CameraRig preset={preset} presetNonce={nonce} focus={focus} />
-        {/* 着用時はネックレスを前面に保ち(=ボディ内部へ貫通させない)、ペンダントを自然に下へ落とす。 */}
-        <group position={wearing ? [0, wearDrop, 0] : [0, 0, 0]}>
-          <AccessoryMeshes wireframe={wireframe} />
-        </group>
+        {/* 着用時は着用専用ジオメトリ（ペンダント胸元＋体前のU字チェーン）で貫通防止＆自然なドレープ */}
+        <AccessoryMeshes wireframe={wireframe} worn={wearing} />
         {wearing && <MannequinBust style={wearStyle} />}
         {dims && <DimensionLabel />}
 

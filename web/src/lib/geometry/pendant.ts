@@ -8,6 +8,66 @@ import { BuiltModel, BuiltPart, buildShape, circleHole, makeGem, makeBezel, make
  *   - バチカン: ring_bail / tube はトーラスを上部に追加
  *   - 石/刻印: 表面に配置
  */
+/**
+ * 着用専用ネックレス。商品用の平面ネックレスを流用せず、
+ *   - ペンダント本体は原点(=胸元/カメラ注視点)に正面向きで配置
+ *   - チェーンは「首付け根の左右アンカー → ペンダント上(バチカン)」のV字を、体の前(z=0)に
+ * 生成する。すべて z>=0（マネキン前面 z<-1 の前）なので貫通しない。
+ * マネキン側(MannequinBust)と同じ寸法基準を使うため装着位置が整合する。
+ */
+export function buildWornNecklace(design: AccessoryDesign): BuiltPart[] {
+  const p = design.params;
+  if (p.kind !== 'pendant') return [];
+  // ペンダント本体のみ（商品チェーン無し）: category を pendant 扱いで生成
+  const pendantOnly: AccessoryDesign = { ...design, category: 'pendant' };
+  const pend = buildPendant(pendantOnly, p);
+  const parts: BuiltPart[] = [...pend.parts]; // ペンダントは原点のまま（=注視点・胸元）
+
+  // 寸法（MannequinBust と整合）
+  const chainLen = Math.max(p.height * 2.6, 46);
+  const halfW = Math.max(p.width * 1.35, 18);
+  const neckR = halfW * 0.5;
+  const neckBaseY = chainLen * 0.78; // 首の付け根（高い位置）
+  const bailY = p.height / 2 + 0.5; // ペンダント上端
+
+  const wire = 0.18, linkLen = 1.9, linkWidth = 1.3;
+  const step = linkLen * 0.5;
+  const placeLink = (x: number, y: number, ang: number, parity: number, id: string) => {
+    const link = makeOvalLink(linkLen, linkWidth, wire);
+    const t = new THREE.Vector3(Math.cos(ang), Math.sin(ang), 0);
+    const n = new THREE.Vector3(-Math.sin(ang), Math.cos(ang), 0);
+    const up = new THREE.Vector3(0, 0, 1);
+    const yAxis = parity === 0 ? up : n;
+    const zAxis = new THREE.Vector3().crossVectors(t, yAxis).normalize();
+    link.applyMatrix4(new THREE.Matrix4().makeBasis(t, yAxis, zAxis));
+    link.translate(x, y, 0); // z=0＝体の前
+    parts.push({ id, geometry: link, role: 'metal', componentType: 'bail' });
+  };
+
+  // 左右のストランド（首付け根アンカー → ペンダント上）。わずかに垂れる。
+  for (const side of [-1, 1]) {
+    const ax = side * neckR * 0.92, ay = neckBaseY;
+    const dist = Math.hypot(ax, ay - bailY);
+    const M = Math.max(12, Math.round(dist / step));
+    let last = { x: ax, y: ay };
+    for (let i = 0; i <= M; i++) {
+      const tt = i / M;
+      const x = ax * (1 - tt);
+      const droop = Math.sin(tt * Math.PI) * chainLen * 0.05; // 自然な垂れ
+      const y = ay + (bailY - ay) * tt - droop;
+      const ang = i === 0 ? Math.atan2(bailY - ay, -ax) : Math.atan2(y - last.y, x - last.x);
+      placeLink(x, y, ang, i % 2, `chain-${side}-${i}`);
+      last = { x, y };
+    }
+  }
+  // バチカン接続リング
+  const jr = new THREE.TorusGeometry(0.9, 0.2, 10, 24);
+  jr.rotateX(Math.PI / 2);
+  jr.translate(0, bailY, 0);
+  parts.push({ id: 'chain-connector', geometry: jr, role: 'metal', componentType: 'bail' });
+  return parts;
+}
+
 export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltModel {
   const parts: BuiltPart[] = [];
 
