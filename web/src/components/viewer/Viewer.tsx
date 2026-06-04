@@ -246,7 +246,7 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
 }
 
 /** カメラを bounds に合わせて初期化 & ビュー切替 */
-function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetNonce: number; focus: 'full' | 'pendant' | 'wear' }) {
+function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetNonce: number; focus: 'full' | 'pendant' }) {
   const design = useDesignStore((s) => s.design);
   const { camera } = useThree();
   const controls = useThree((s) => s.controls) as any;
@@ -268,16 +268,12 @@ function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetN
   }, [design]);
 
   useEffect(() => {
-    // wear=着用時はペンダント＋胸元に寄せてアクセサリーを大きく見せる（少し上を注視）
     const isPendant = focus === 'pendant';
-    const isWear = focus === 'wear';
-    // 全体ビューは、上のツールバーで上端が切れないよう少し引き＋注視点を上げて構図を下げる
+    // 寄り=ペンダント(原点)を主役に大きく。全体=上のツールバーで切れないよう引き＋構図を下げる。
     const target = isPendant
-      ? new THREE.Vector3(0, 0, 0)
-      : isWear
-        ? new THREE.Vector3(0, pendantDim * 0.25, 0)
-        : new THREE.Vector3(center.x, center.y + fullDim * 0.1, center.z);
-    const d = isPendant ? pendantDim * 2.3 : isWear ? pendantDim * 3.4 : fullDim * 2.35;
+      ? new THREE.Vector3(0, pendantDim * 0.18, 0)
+      : new THREE.Vector3(center.x, center.y + fullDim * 0.1, center.z);
+    const d = isPendant ? pendantDim * 2.5 : fullDim * 2.35;
     const pos: Record<ViewPreset, [number, number, number]> = {
       persp: [target.x + d * 0.62, target.y + d * 0.48, target.z + d * 0.92],
       front: [target.x, target.y, target.z + d],
@@ -411,12 +407,12 @@ export default function Viewer() {
         <div className="glass pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
           <Btn active={view === 'edit'} onClick={() => setView2('edit')} title="編集ビュー（グリッド・寸法・くっきり表示）">編集</Btn>
           <Btn active={view === 'hero'} onClick={() => setView2('hero')} title="ヒーローレンダー（広告のような高画質）">ヒーロー</Btn>
-          <Btn active={view === 'wear'} onClick={() => setView2('wear')} title="着用プレビュー（マネキン / モデル）">着用</Btn>
+          <Btn active={view === 'wear'} onClick={() => { setView2('wear'); setFocus('pendant'); }} title="着用プレビュー（マネキン / モデル）">着用</Btn>
         </div>
-        {view === 'hero' && (
+        {view !== 'edit' && (
           <div className="glass pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
-            <Btn active={focus === 'full'} onClick={() => setFocus('full')} title="ネックレス全体">全体</Btn>
-            <Btn active={focus === 'pendant'} onClick={() => setFocus('pendant')} title="ペンダント寄り">寄り</Btn>
+            <Btn active={focus === 'full'} onClick={() => setFocus('full')} title="全体">全体</Btn>
+            <Btn active={focus === 'pendant'} onClick={() => setFocus('pendant')} title="寄り（アクセサリーを主役に）">寄り</Btn>
           </div>
         )}
         {view === 'wear' && (
@@ -465,7 +461,7 @@ export default function Viewer() {
           <Environment files={studioHdri as string} environmentIntensity={0.95} resolution={2048} />
         </Suspense>
 
-        <CameraRig preset={preset} presetNonce={nonce} focus={wearing ? 'wear' : focus} />
+        <CameraRig preset={preset} presetNonce={nonce} focus={focus} />
         <AccessoryMeshes wireframe={wireframe} />
         {wearing && <MannequinBust style={wearStyle} />}
         {dims && <DimensionLabel />}
@@ -529,13 +525,21 @@ export default function Viewer() {
           />
         </GizmoHelper>
 
-        {/* 後処理。ヒーロー=広告風(被写界深度＋Bloom＋周辺減光)、編集=くっきり(軽いBloomのみ) */}
-        {!wireframe && hero && (
+        {/* 後処理。ヒーロー単体=DoF有(広告風)。着用=DoF無し(アクセサリー本体を常に鮮明に保つ)。編集=くっきり。 */}
+        {!wireframe && hero && !wearing && (
           <EffectComposer multisampling={8}>
             {/* DoFは被写体をぼかさない極浅め（背景にだけ僅かな奥行き）。シャープさ優先 */}
             <DepthOfField target={[0, 0, 0]} focalLength={0.07} bokehScale={1.1} height={768} />
             <Bloom mipmapBlur intensity={0.09} luminanceThreshold={0.97} luminanceSmoothing={0.08} radius={0.4} />
             <Vignette offset={0.32} darkness={0.52} eskil={false} />
+            <SMAA />
+          </EffectComposer>
+        )}
+        {!wireframe && wearing && (
+          <EffectComposer multisampling={8}>
+            {/* 着用はDoF無し＝アクセサリー本体がぼやけない。周辺減光で主役を引き立てる */}
+            <Bloom mipmapBlur intensity={0.08} luminanceThreshold={0.97} luminanceSmoothing={0.08} radius={0.38} />
+            <Vignette offset={0.3} darkness={0.5} eskil={false} />
             <SMAA />
           </EffectComposer>
         )}
