@@ -41,7 +41,6 @@ function teardropOutline(topTaper = 0.45, bottomRoundness = 0.78, n = 256): { x:
   const r = 0.5 * (0.7 + bottomRoundness * 0.3); // 下円の半径
   const by = -1 + r; // 下円の中心y
   const rightBottom = { x: r, y: by };
-  const leftBottom = { x: -r, y: by };
   // 片側ベジェ(apex→rightBottom)を sample
   const bez = (p0: any, c1: any, c2: any, p1: any, steps: number) => {
     const arr: { x: number; y: number }[] = [];
@@ -55,16 +54,18 @@ function teardropOutline(topTaper = 0.45, bottomRoundness = 0.78, n = 256): { x:
     return arr;
   };
   const half = Math.floor(n / 4);
-  const c1 = { x: r * (1.1 + topTaper * 0.6), y: 1 - topTaper * 1.1 };
-  const c2 = { x: r * 1.08, y: by + r * 0.7 };
+  // 右側ベジェ: 頂点(0,1) → 下円の右端(r, by)。上は尖り、側面はなめらかに膨らむ。
+  const c1 = { x: r * (0.55 + topTaper * 0.5), y: 1 - topTaper * 0.85 };
+  const c2 = { x: r * 1.04, y: by + r * 0.85 };
   const right = bez(apex, c1, c2, rightBottom, half);
-  // 下の円弧 rightBottom → (0,-1) → leftBottom
+  // 下の円弧: 右端(角0)→最下点(角-π/2=(0,-1))→左端(角-π)。半時計でなく時計回りに。
+  const arcN = Math.floor(n / 2);
   const arc: { x: number; y: number }[] = [];
-  for (let i = 1; i < n / 2; i++) {
-    const a = (i / (n / 2)) * Math.PI; // 0..π
-    arc.push({ x: r * Math.cos(-Math.PI / 2 - a) * -1, y: by + r * Math.sin(-Math.PI / 2 - a) * -1 });
+  for (let i = 1; i < arcN; i++) {
+    const ang = -(i / arcN) * Math.PI; // 0 → -π
+    arc.push({ x: r * Math.cos(ang), y: by + r * Math.sin(ang) });
   }
-  // 左側 = 右側のミラー（逆順）
+  // 左側 = 右側ベジェのミラー（leftBottom→apex の順）
   const left = right.map((p) => ({ x: -p.x, y: p.y })).reverse();
   const raw = [...right, ...arc, ...left];
   // bbox 正規化 → [-0.5,0.5]

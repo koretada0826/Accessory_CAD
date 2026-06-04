@@ -246,7 +246,7 @@ function AccessoryMeshes({ wireframe }: { wireframe: boolean }) {
 }
 
 /** カメラを bounds に合わせて初期化 & ビュー切替 */
-function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetNonce: number; focus: 'full' | 'pendant' }) {
+function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetNonce: number; focus: 'full' | 'pendant' | 'wear' }) {
   const design = useDesignStore((s) => s.design);
   const { camera } = useThree();
   const controls = useThree((s) => s.controls) as any;
@@ -268,9 +268,15 @@ function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetN
   }, [design]);
 
   useEffect(() => {
-    const usePendant = focus === 'pendant';
-    const target = usePendant ? new THREE.Vector3(0, 0, 0) : center; // ペンダントは原点
-    const d = (usePendant ? pendantDim : fullDim) * (usePendant ? 2.3 : 2.05);
+    // wear=着用時はペンダント＋胸元に寄せてアクセサリーを大きく見せる（少し上を注視）
+    const isPendant = focus === 'pendant';
+    const isWear = focus === 'wear';
+    const target = isPendant
+      ? new THREE.Vector3(0, 0, 0)
+      : isWear
+        ? new THREE.Vector3(0, pendantDim * 0.25, 0)
+        : center;
+    const d = isPendant ? pendantDim * 2.3 : isWear ? pendantDim * 3.4 : fullDim * 2.05;
     const pos: Record<ViewPreset, [number, number, number]> = {
       persp: [target.x + d * 0.62, target.y + d * 0.48, target.z + d * 0.92],
       front: [target.x, target.y, target.z + d],
@@ -458,7 +464,7 @@ export default function Viewer() {
           <Environment files={studioHdri as string} environmentIntensity={0.95} resolution={2048} />
         </Suspense>
 
-        <CameraRig preset={preset} presetNonce={nonce} focus={wearing ? 'full' : focus} />
+        <CameraRig preset={preset} presetNonce={nonce} focus={wearing ? 'wear' : focus} />
         <AccessoryMeshes wireframe={wireframe} />
         {wearing && <MannequinBust style={wearStyle} />}
         {dims && <DimensionLabel />}
