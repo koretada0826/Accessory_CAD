@@ -72,7 +72,7 @@ export function buildPendant(design: AccessoryDesign, p: PendantParams): BuiltMo
     bevelThickness: Math.min(0.2, p.thickness * 0.13),
     // カスタム外形(teardrop等)の解像度は outline 点数(208)で決まる。curveSegmentsは
     // disc/楕円など曲線シェイプ用なので適正値に（過剰だとtri数が爆発する）。
-    bevelSegments: 10,
+    bevelSegments: 14,
     curveSegments: 96,
   });
   body.translate(0, 0, -p.thickness / 2);
@@ -250,21 +250,32 @@ function buildNecklaceLayout(
   jr.translate(cx, cy + 0.6, 0);
   parts.push({ id: 'chain-connector', geometry: jr, role: 'metal', componentType: 'bail' });
 
-  // 上部中央: 引き輪(spring ring clasp)
   const topY = ovalCy + b;
-  const ring = new THREE.TorusGeometry(1.3, 0.3, 12, 32, Math.PI * 1.7);
+
+  // 丸カン（jump ring）: チェーン上端と留め具/アジャスターを繋ぐ小リング（省略しない）
+  const jumpRing = (x: number, y: number, id: string) => {
+    const g = new THREE.TorusGeometry(0.55, 0.13, 10, 24);
+    g.rotateY(Math.PI / 2);
+    g.translate(x, y, 0);
+    parts.push({ id, geometry: g, role: 'metal', componentType: 'bail' });
+  };
+  jumpRing(cx - 0.5, topY, 'jumpring-clasp');
+  jumpRing(cx + 0.6, topY, 'jumpring-ext');
+
+  // 上部中央: 引き輪(spring ring clasp)
+  const ring = new THREE.TorusGeometry(1.3, 0.3, 14, 36, Math.PI * 1.7);
   ring.rotateY(Math.PI / 2);
-  ring.translate(cx - 1.0, topY - 0.4, 0);
+  ring.translate(cx - 1.6, topY + 0.2, 0);
   parts.push({ id: 'clasp', geometry: ring, role: 'metal', componentType: 'bail' });
 
   // アジャスター数コマ＋エンドタグ（上部やや右）
-  for (let i = 0; i < 6; i++) placeLink(cx + 1.4, topY - 0.4 + i * step, Math.PI / 2, i % 2, `extender-${i}`);
-  const tag = new THREE.SphereGeometry(0.6, 16, 12);
-  tag.scale(0.7, 1.1, 0.5);
-  tag.translate(cx + 1.4, topY - 0.4 + 6 * step + 0.5, 0);
+  for (let i = 0; i < 6; i++) placeLink(cx + 1.6, topY + 0.2 + i * step, Math.PI / 2, i % 2, `extender-${i}`);
+  const tag = new THREE.SphereGeometry(0.6, 18, 14);
+  tag.scale(0.7, 1.15, 0.5);
+  tag.translate(cx + 1.6, topY + 0.2 + 6 * step + 0.5, 0);
   parts.push({ id: 'end-tag', geometry: tag, role: 'metal', componentType: 'bail' });
 
-  return { parts, topY };
+  return { parts, topY: topY + 6 * step + 1 };
 }
 
 /**

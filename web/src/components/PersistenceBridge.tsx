@@ -5,7 +5,8 @@ import { useDesignStore } from '@/store/useDesignStore';
 import type { AccessoryDesign } from '@/types/accessory';
 import { SCHEMA_VERSION } from '@/types/accessory';
 
-const KEY = 'atelier:design:v1';
+// v2: 初期表示をネックレスに変更したため旧保存(リング等)を破棄して作り直す
+const KEY = 'atelier:design:v2';
 
 /**
  * 構造JSONをlocalStorageに自動保存・復元する（API課金なし・ブラウザ内完結）。
