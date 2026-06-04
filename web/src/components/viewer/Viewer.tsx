@@ -298,28 +298,49 @@ function CameraRig({ preset, presetNonce, focus }: { preset: ViewPreset; presetN
  * 汎用着用ルーター: 現状は neck（ネックレス/ペンダント）に対応。
  * ネックレスは原点(ペンダント)から上にチェーンが伸びる前提で、首の開口に合わせて配置。
  */
-function MannequinBust() {
+/**
+ * 着用プレビュー用の人体バスト（首・肩・胸・頭）を手続き生成。
+ * style=mannequin: 白いジュエリーマネキン / model: 肌色の人物モデル(頭付き)。
+ * ネックレスは原点(ペンダント=胸元)から上にチェーンが伸びる前提で、首・胸に沿わせる。
+ */
+function MannequinBust({ style }: { style: 'mannequin' | 'model' }) {
   const design = useDesignStore((s) => s.design);
   const p = design.params;
   if (p.kind !== 'pendant') return null;
   const pendH = p.height, pendW = p.width;
   const chainLen = Math.max(pendH * 2.6, 46);
   const halfW = Math.max(pendW * 1.35, 18);
-  const neckR = halfW * 0.72;
-  const neckCY = chainLen * 0.92;
-  const matte = { color: '#cdc8bd', roughness: 0.92, metalness: 0.0 } as const;
+  const neckR = halfW * 0.58;
+  const model = style === 'model';
+  const mat = { color: model ? '#d7a98a' : '#d4cfc5', roughness: model ? 0.62 : 0.82, metalness: 0 } as const;
+  // 胴体を後ろへ。胸の前面が z≈-1（ネックレス面のすぐ後ろ）に来るように
+  const zback = -neckR * 1.25;
   return (
-    <group position={[0, 0, -neckR * 0.75]}>
+    <group position={[0, 0, zback]}>
+      {/* 胸〜胴（下半身側を広く、上半身デコルテ） */}
+      <mesh position={[0, chainLen * 0.26, -neckR * 0.45]} scale={[halfW * 2.35, chainLen * 0.95, neckR * 1.7]} castShadow receiveShadow>
+        <sphereGeometry args={[1, 64, 44, 0, Math.PI * 2, 0, Math.PI * 0.72]} />
+        <meshStandardMaterial {...mat} />
+      </mesh>
+      {/* 左右の肩 */}
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * halfW * 1.28, chainLen * 0.6, -neckR * 0.5]} scale={[halfW * 0.95, neckR * 1.5, neckR * 1.5]} castShadow receiveShadow>
+          <sphereGeometry args={[1, 36, 28]} />
+          <meshStandardMaterial {...mat} />
+        </mesh>
+      ))}
       {/* 首 */}
-      <mesh position={[0, neckCY, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[neckR * 0.88, neckR * 1.05, chainLen * 0.6, 48, 1]} />
-        <meshStandardMaterial {...matte} />
+      <mesh position={[0, chainLen * 0.84, -neckR * 0.1]} castShadow receiveShadow>
+        <cylinderGeometry args={[neckR * 0.82, neckR * 1.0, chainLen * 0.55, 48, 1]} />
+        <meshStandardMaterial {...mat} />
       </mesh>
-      {/* 肩〜胸（扁平ドーム: 幅広・厚み控えめ） */}
-      <mesh position={[0, chainLen * 0.34, -neckR * 0.2]} scale={[halfW * 2.1, chainLen * 0.55, neckR * 1.1]} castShadow receiveShadow>
-        <sphereGeometry args={[1, 56, 36, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
-        <meshStandardMaterial {...matte} />
-      </mesh>
+      {/* 頭（モデルのみ） */}
+      {model && (
+        <mesh position={[0, chainLen * 1.2, -neckR * 0.1]} scale={[neckR * 1.15, neckR * 1.45, neckR * 1.2]} castShadow receiveShadow>
+          <sphereGeometry args={[1, 48, 40]} />
+          <meshStandardMaterial {...mat} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -340,6 +361,7 @@ export default function Viewer() {
   // 表示モード: hero=広告レンダー / edit=編集 / wear=マネキン着用プレビュー
   const [view, setView2] = useState<'hero' | 'edit' | 'wear'>('hero');
   const [focus, setFocus] = useState<'full' | 'pendant'>('full');
+  const [wearStyle, setWearStyle] = useState<'mannequin' | 'model'>('model');
   const [wireframe, setWireframe] = useState(false);
   const [grid, setGrid] = useState(false);
   const [dims, setDims] = useState(false);
@@ -377,17 +399,24 @@ export default function Viewer() {
 
   return (
     <div className="relative h-full w-full">
-      {/* 表示モード切替（編集 / ヒーローレンダー）＋ ヒーロー時の構図(全体/寄り) */}
-      <div className="glass pointer-events-auto absolute left-3 top-3 z-10 flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
-        <Btn active={view === 'edit'} onClick={() => setView2('edit')} title="編集ビュー（グリッド・寸法・くっきり表示）">編集</Btn>
-        <Btn active={view === 'hero'} onClick={() => setView2('hero')} title="ヒーローレンダー（広告のような高画質）">ヒーロー</Btn>
-        <Btn active={view === 'wear'} onClick={() => setView2('wear')} title="マネキン着用プレビュー">着用</Btn>
+      {/* 表示モード切替。中央ツールバーと衝突しないよう左上に縦積み（2段目はサブ操作） */}
+      <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-col items-start gap-2">
+        <div className="glass pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
+          <Btn active={view === 'edit'} onClick={() => setView2('edit')} title="編集ビュー（グリッド・寸法・くっきり表示）">編集</Btn>
+          <Btn active={view === 'hero'} onClick={() => setView2('hero')} title="ヒーローレンダー（広告のような高画質）">ヒーロー</Btn>
+          <Btn active={view === 'wear'} onClick={() => setView2('wear')} title="着用プレビュー（マネキン / モデル）">着用</Btn>
+        </div>
         {view === 'hero' && (
-          <>
-            <div className="mx-1 h-5 w-px bg-white/10" />
-            <Btn active={focus === 'full'} onClick={() => setFocus('full')} title="全体">全体</Btn>
-            <Btn active={focus === 'pendant'} onClick={() => setFocus('pendant')} title="寄り">寄り</Btn>
-          </>
+          <div className="glass pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
+            <Btn active={focus === 'full'} onClick={() => setFocus('full')} title="ネックレス全体">全体</Btn>
+            <Btn active={focus === 'pendant'} onClick={() => setFocus('pendant')} title="ペンダント寄り">寄り</Btn>
+          </div>
+        )}
+        {view === 'wear' && (
+          <div className="glass pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-ink-700/70 p-1 shadow-panel">
+            <Btn active={wearStyle === 'mannequin'} onClick={() => setWearStyle('mannequin')} title="ジュエリーマネキン">マネキン</Btn>
+            <Btn active={wearStyle === 'model'} onClick={() => setWearStyle('model')} title="人物モデル着用">モデル</Btn>
+          </div>
         )}
       </div>
 
@@ -431,7 +460,7 @@ export default function Viewer() {
 
         <CameraRig preset={preset} presetNonce={nonce} focus={wearing ? 'full' : focus} />
         <AccessoryMeshes wireframe={wireframe} />
-        {wearing && <MannequinBust />}
+        {wearing && <MannequinBust style={wearStyle} />}
         {dims && <DimensionLabel />}
 
         {/* 反射フロア（製品写真風の艶のある黒床に作品が映り込む。ヒーロー時のみ） */}
