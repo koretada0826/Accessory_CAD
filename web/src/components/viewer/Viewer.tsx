@@ -318,7 +318,8 @@ function MannequinBust({ style }: { style: 'mannequin' | 'model' }) {
   const neckBaseY = chainLen * 0.78; // 首の付け根（チェーン開口より少し下）
   const chestCY = neckBaseY - chestHalfH * 0.72; // 胸の中心
   const depthHalf = neckR * 1.3; // 前後の厚み
-  const backZ = (d: number) => -(d + 0.5); // 前面を z≈-0.5 に置く
+  // 前面を z≈-1.2 に置く＝ネックレス(z>=-0.5)が必ず体の前。内部への貫通を防ぐ
+  const backZ = (d: number) => -(d + 1.2);
 
   return (
     <group>
@@ -361,6 +362,11 @@ function DimensionLabel() {
 }
 
 export default function Viewer() {
+  const designForWear = useDesignStore((s) => s.design);
+  // 着用時にペンダントを自然に下へ落とす量（チェーン長に比例）
+  const wearDrop = designForWear.params.kind === 'pendant'
+    ? -Math.max(designForWear.params.height * 2.6, 46) * 0.12
+    : 0;
   // 表示モード: hero=広告レンダー / edit=編集 / wear=マネキン着用プレビュー
   const [view, setView2] = useState<'hero' | 'edit' | 'wear'>('hero');
   const [focus, setFocus] = useState<'full' | 'pendant'>('full');
@@ -462,9 +468,8 @@ export default function Viewer() {
         </Suspense>
 
         <CameraRig preset={preset} presetNonce={nonce} focus={focus} />
-        {/* 着用時はネックレス上部を後ろへ傾け、チェーンが首に巻きつくドレープに（ペグ掛けを解消）。
-            原点(ペンダント)を支点に回転＝ペンダントは胸元・正面のまま、上部だけ背後へ。 */}
-        <group rotation={wearing ? [-0.42, 0, 0] : [0, 0, 0]}>
+        {/* 着用時はネックレスを前面に保ち(=ボディ内部へ貫通させない)、ペンダントを自然に下へ落とす。 */}
+        <group position={wearing ? [0, wearDrop, 0] : [0, 0, 0]}>
           <AccessoryMeshes wireframe={wireframe} />
         </group>
         {wearing && <MannequinBust style={wearStyle} />}
