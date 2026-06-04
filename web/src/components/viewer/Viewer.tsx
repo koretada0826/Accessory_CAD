@@ -312,34 +312,34 @@ function MannequinBust({ style }: { style: 'mannequin' | 'model' }) {
   const model = style === 'model';
   const mat = { color: model ? '#caa085' : '#dcd6cc', roughness: model ? 0.6 : 0.8, metalness: 0 } as const;
 
-  // 胴/胸: 肩がなだらかに傾斜する一枚の扁平な上半身（前面は浅く、首元へ自然に狭まる）。
-  const shoulderHalfW = halfW * 1.7; // 肩幅(半)
-  const torsoHalfH = chainLen * 0.92; // 胴の高さ(半)
-  const torsoTopY = chainLen * 0.92; // 肩/首の付け根の高さ
-  const torsoCY = torsoTopY - torsoHalfH; // 中心
-  const depthHalf = neckR * 1.0; // 前後の厚み(浅め)。前面が z≈-1 になるよう奥へ
-  const frontBack = (d: number) => -(d + 1); // 前面を z=-1 に置くZ
+  // 胴/胸/肩/首: 縦長の卵ではなく、肩幅が広く胸が前に出た“上半身”。前面は浅め。
+  const shoulderHalfW = chainLen * 0.92; // 肩幅(半)＝広い
+  const chestHalfH = chainLen * 0.62; // 胸の高さ(半)＝肩より低め
+  const neckBaseY = chainLen * 0.78; // 首の付け根（チェーン開口より少し下）
+  const chestCY = neckBaseY - chestHalfH * 0.72; // 胸の中心
+  const depthHalf = neckR * 1.3; // 前後の厚み
+  const backZ = (d: number) => -(d + 0.5); // 前面を z≈-0.5 に置く
 
   return (
     <group>
-      {/* 胴体・肩・胸（球を肩幅広・浅めにスケール。上が自然に狭まり肩→首へ） */}
-      <mesh position={[0, torsoCY, frontBack(depthHalf)]} scale={[shoulderHalfW, torsoHalfH, depthHalf]} castShadow receiveShadow>
-        <sphereGeometry args={[1, 80, 56]} />
+      {/* 胸〜肩（横長＝肩幅広い・上が狭まる） */}
+      <mesh position={[0, chestCY, backZ(depthHalf)]} scale={[shoulderHalfW, chestHalfH, depthHalf]} castShadow receiveShadow>
+        <sphereGeometry args={[1, 84, 56]} />
         <meshStandardMaterial {...mat} />
       </mesh>
-      {/* 鎖骨〜デコルテのなだらかな盛り（胸の上部を少し前へ） */}
-      <mesh position={[0, torsoTopY - chainLen * 0.18, frontBack(depthHalf * 0.7)]} scale={[shoulderHalfW * 0.62, chainLen * 0.26, depthHalf * 0.7]} castShadow receiveShadow>
-        <sphereGeometry args={[1, 48, 36]} />
+      {/* 鎖骨〜デコルテ（胸上部の前への盛り） */}
+      <mesh position={[0, neckBaseY - chainLen * 0.16, backZ(depthHalf * 0.55)]} scale={[shoulderHalfW * 0.62, chainLen * 0.22, depthHalf * 0.6]} castShadow receiveShadow>
+        <sphereGeometry args={[1, 56, 40]} />
         <meshStandardMaterial {...mat} />
       </mesh>
-      {/* 首（胴の付け根から上へ） */}
-      <mesh position={[0, torsoTopY + chainLen * 0.16, frontBack(neckR)]} castShadow receiveShadow>
-        <cylinderGeometry args={[neckR * 0.8, neckR * 1.02, chainLen * 0.5, 56, 1]} />
+      {/* 首（付け根から上へ・細め） */}
+      <mesh position={[0, neckBaseY + chainLen * 0.18, backZ(neckR)]} castShadow receiveShadow>
+        <cylinderGeometry args={[neckR * 0.82, neckR * 1.0, chainLen * 0.55, 56, 1]} />
         <meshStandardMaterial {...mat} />
       </mesh>
       {/* 顎/頭（モデルのみ） */}
       {model && (
-        <mesh position={[0, torsoTopY + chainLen * 0.55, frontBack(neckR * 1.25)]} scale={[neckR * 1.2, neckR * 1.5, neckR * 1.25]} castShadow receiveShadow>
+        <mesh position={[0, neckBaseY + chainLen * 0.62, backZ(neckR * 1.2)]} scale={[neckR * 1.15, neckR * 1.5, neckR * 1.2]} castShadow receiveShadow>
           <sphereGeometry args={[1, 56, 44]} />
           <meshStandardMaterial {...mat} />
         </mesh>
@@ -462,7 +462,11 @@ export default function Viewer() {
         </Suspense>
 
         <CameraRig preset={preset} presetNonce={nonce} focus={focus} />
-        <AccessoryMeshes wireframe={wireframe} />
+        {/* 着用時はネックレス上部を後ろへ傾け、チェーンが首に巻きつくドレープに（ペグ掛けを解消）。
+            原点(ペンダント)を支点に回転＝ペンダントは胸元・正面のまま、上部だけ背後へ。 */}
+        <group rotation={wearing ? [-0.42, 0, 0] : [0, 0, 0]}>
+          <AccessoryMeshes wireframe={wireframe} />
+        </group>
         {wearing && <MannequinBust style={wearStyle} />}
         {dims && <DimensionLabel />}
 
